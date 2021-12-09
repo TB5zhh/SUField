@@ -137,7 +137,7 @@ class DictDataset(Dataset, ABC):
         return len(self.data_paths)
 
 
-class VoxelizationDatasetBase(DictDataset, ABC):
+class VoxelizedDatasetBase(DictDataset, ABC):
     IS_TEMPORAL = False
     CLIP_BOUND = (-1000, -1000, -1000, 1000, 1000, 1000)
     ROTATION_AXIS = None
@@ -145,52 +145,6 @@ class VoxelizationDatasetBase(DictDataset, ABC):
     NUM_LABELS = -1  # Number of labels in the dataset, including all ignore classes
     IGNORE_LABELS = None  # labels that are not evaluated
 
-    def __init__(self,
-                 data_paths,
-                 prevoxel_transform=None,
-                 input_transform=None,
-                 target_transform=None,
-                 cache=False,
-                 data_root='/',
-                 ignore_mask=255,
-                 return_transformation=False,
-                 **kwargs):
-        """
-        ignore_mask: label value for ignore class. It will not be used as a class in the loss or evaluation.
-        """
-        DictDataset.__init__(self,
-                             data_paths,
-                             prevoxel_transform=prevoxel_transform,
-                             input_transform=input_transform,
-                             target_transform=target_transform,
-                             cache=cache,
-                             data_root=data_root)
-
-        self.ignore_mask = ignore_mask
-        self.return_transformation = return_transformation
-
-    def __getitem__(self, index):
-        raise NotImplementedError
-
-    def load_ply(self, index):
-        filepath = self.data_root / self.data_paths[index]
-        plydata = PlyData.read(filepath)
-        data = plydata.elements[0].data
-        coords = np.array([data['x'], data['y'], data['z']], dtype=np.float32).T
-        feats = np.array([data['red'], data['green'], data['blue']], dtype=np.float32).T
-        labels = np.array(data['label'], dtype=np.int32)
-        return coords, feats, labels, None
-
-    def __len__(self):
-        num_data = len(self.data_paths)
-        return num_data
-
-
-class VoxelizationtestDataset(VoxelizationDatasetBase):
-    """
-    This dataset loads RGB point clouds and their labels as a list of points
-    and voxelizes the pointcloud with sufficient data augmentation.
-    """
     # Voxelization arguments
     VOXEL_SIZE = 0.05  # 5cm
 
@@ -207,38 +161,48 @@ class VoxelizationtestDataset(VoxelizationDatasetBase):
     # Augment coords to feats
     AUGMENT_COORDS_TO_FEATS = False
 
+    VARIANT = None
+
     def __init__(self,
                  data_paths,
                  prevoxel_transform=None,
                  input_transform=None,
                  target_transform=None,
+                 cache=False,
                  data_root='/',
-                 ignore_label=255,
+                 ignore_mask=255,
                  return_transformation=False,
                  augment_data=False,
                  config=None,
                  **kwargs):
+        """
+        ignore_mask: label value for ignore class. It will not be used as a class in the loss or evaluation.
+        """
+        DictDataset.__init__(self,
+                             data_paths,
+                             prevoxel_transform=prevoxel_transform,
+                             input_transform=input_transform,
+                             target_transform=target_transform,
+                             cache=cache,
+                             data_root=data_root)
 
+        self.ignore_mask = ignore_mask
+        self.return_transformation = return_transformation
         self.augment_data = augment_data
         self.config = config
-        VoxelizationDatasetBase.__init__(self,
-                                         data_paths,
-                                         prevoxel_transform=prevoxel_transform,
-                                         input_transform=input_transform,
-                                         target_transform=target_transform,
-                                         cache=cache,
-                                         data_root=data_root,
-                                         ignore_mask=ignore_label,
-                                         return_transformation=return_transformation)
 
-        # Prevoxel transformations
-        self.voxelizer = testVoxelizer(voxel_size=self.VOXEL_SIZE,
-                                       clip_bound=self.CLIP_BOUND,
-                                       use_augmentation=augment_data,
-                                       scale_augmentation_bound=self.SCALE_AUGMENTATION_BOUND,
-                                       rotation_augmentation_bound=self.ROTATION_AUGMENTATION_BOUND,
-                                       translation_augmentation_ratio_bound=self.TRANSLATION_AUGMENTATION_RATIO_BOUND,
-                                       ignore_label=ignore_label)
+        if self.VARIANT == 'train':
+            VoxelizerCls = Voxelizer
+        else:
+            VoxelizerCls = testVoxelizer
+
+        self.voxelizer = VoxelizerCls(voxel_size=self.VOXEL_SIZE,
+                                      clip_bound=self.CLIP_BOUND,
+                                      use_augmentation=augment_data,
+                                      scale_augmentation_bound=self.SCALE_AUGMENTATION_BOUND,
+                                      rotation_augmentation_bound=self.ROTATION_AUGMENTATION_BOUND,
+                                      translation_augmentation_ratio_bound=self.TRANSLATION_AUGMENTATION_RATIO_BOUND,
+                                      ignore_label=ignore_mask)
 
         # map labels not evaluated to ignore_label
         label_map = {}
@@ -253,6 +217,18 @@ class VoxelizationtestDataset(VoxelizationDatasetBase):
         self.label_map = label_map
         self.NUM_LABELS -= len(self.IGNORE_LABELS)
 
+    def __getitem__(self, index):
+        raise NotImplementedError
+
+    def load_ply(self, index):
+        filepath = self.data_root / self.data_paths[index]
+        plydata = PlyData.read(filepath)
+        data = plydata.elements[0].data
+        coords = np.array([data['x'], data['y'], data['z']], dtype=np.float32).T
+        feats = np.array([data['red'], data['green'], data['blue']], dtype=np.float32).T
+        labels = np.array(data['label'], dtype=np.int32)
+        return coords, feats, labels, None
+
     def _augment_coords_to_feats(self, coords, feats, labels=None):
         norm_coords = coords - coords.mean(0)
         # color must come first.
@@ -265,6 +241,45 @@ class VoxelizationtestDataset(VoxelizationDatasetBase):
     def convert_mat2cfl(self, mat):
         # Generally, xyz,rgb,label
         return mat[:, :3], mat[:, 3:-1], mat[:, -1]
+
+    def __len__(self):
+        num_data = len(self.data_paths)
+        return num_data
+
+
+class VoxelizedTestDataset(VoxelizedDatasetBase):
+    """
+    This dataset loads RGB point clouds and their labels as a list of points
+    and voxelizes the pointcloud with sufficient data augmentation.
+    """
+    VARIANT = 'train'
+    def __init__(
+        self,
+        data_paths,
+        prevoxel_transform=None,
+        input_transform=None,
+        target_transform=None,
+        cache=False,
+        data_root='/',
+        ignore_mask=255,
+        return_transformation=False,
+        augment_data=False,
+        config=None,
+        **kwargs,
+    ):
+        super().__init__(
+            data_paths,
+            prevoxel_transform=prevoxel_transform,
+            input_transform=input_transform,
+            target_transform=target_transform,
+            cache=cache,
+            data_root=data_root,
+            ignore_mask=ignore_mask,
+            return_transformation=return_transformation,
+            augment_data=augment_data,
+            config=config,
+            **kwargs,
+        )
 
     def __getitem__(self, index):
         coords, feats, labels, center = self.load_ply(index)
@@ -301,86 +316,39 @@ class VoxelizationtestDataset(VoxelizationDatasetBase):
         return tuple(return_args)
 
 
-class VoxelizationDataset(VoxelizationDatasetBase):
+class VoxelizedDataset(VoxelizedDatasetBase):
     """
     This dataset loads RGB point clouds and their labels as a list of points
     and voxelizes the pointcloud with sufficient data augmentation.
     """
-    # Voxelization arguments
-    VOXEL_SIZE = 0.05  # 5cm
-
-    # Coordinate Augmentation Arguments: Unlike feature augmentation, coordinate
-    # augmentation has to be done before voxelization
-    SCALE_AUGMENTATION_BOUND = (0.9, 1.1)
-    ROTATION_AUGMENTATION_BOUND = ((-np.pi / 6, np.pi / 6), (-np.pi, np.pi), (-np.pi / 6, np.pi / 6))
-    TRANSLATION_AUGMENTATION_RATIO_BOUND = ((-0.2, 0.2), (-0.05, 0.05), (-0.2, 0.2))
-    ELASTIC_DISTORT_PARAMS = None
-
-    # MISC.
-    PREVOXELIZATION_VOXEL_SIZE = None
-
-    # Augment coords to feats
-    AUGMENT_COORDS_TO_FEATS = False
-
-    def __init__(self,
-                 data_paths,
-                 prevoxel_transform=None,
-                 input_transform=None,
-                 target_transform=None,
-                 data_root='/',
-                 ignore_label=255,
-                 return_transformation=False,
-                 augment_data=False,
-                 config=None,
-                 **kwargs):
-
-        self.augment_data = augment_data
-        self.config = config
-        self.voxel_size = config.voxel_size
-        VoxelizationDatasetBase.__init__(self,
-                                         data_paths,
-                                         prevoxel_transform=prevoxel_transform,
-                                         input_transform=input_transform,
-                                         target_transform=target_transform,
-                                         cache=cache,
-                                         data_root=data_root,
-                                         ignore_mask=ignore_label,
-                                         return_transformation=return_transformation)
-
-        # Prevoxel transformations
-        self.voxelizer = Voxelizer(voxel_size=self.VOXEL_SIZE,
-                                   clip_bound=self.CLIP_BOUND,
-                                   use_augmentation=augment_data,
-                                   scale_augmentation_bound=self.SCALE_AUGMENTATION_BOUND,
-                                   rotation_augmentation_bound=self.ROTATION_AUGMENTATION_BOUND,
-                                   translation_augmentation_ratio_bound=self.TRANSLATION_AUGMENTATION_RATIO_BOUND,
-                                   ignore_label=ignore_label)
-
-        # map labels not evaluated to ignore_label
-        label_map = {}
-        n_used = 0
-        for l in range(self.NUM_LABELS):
-            if l in self.IGNORE_LABELS:
-                label_map[l] = self.ignore_mask
-            else:
-                label_map[l] = n_used
-                n_used += 1
-        label_map[self.ignore_mask] = self.ignore_mask
-        self.label_map = label_map
-        self.NUM_LABELS -= len(self.IGNORE_LABELS)
-
-    def _augment_coords_to_feats(self, coords, feats, labels=None):
-        norm_coords = coords - coords.mean(0)
-        # color must come first.
-        if isinstance(coords, np.ndarray):
-            feats = np.concatenate((feats, norm_coords), 1)
-        else:
-            feats = torch.cat((feats, norm_coords), 1)
-        return coords, feats, labels
-
-    def convert_mat2cfl(self, mat):
-        # Generally, xyz,rgb,label
-        return mat[:, :3], mat[:, 3:-1], mat[:, -1]
+    VARIANT = 'test'
+    def __init__(
+        self,
+        data_paths,
+        prevoxel_transform=None,
+        input_transform=None,
+        target_transform=None,
+        cache=False,
+        data_root='/',
+        ignore_mask=255,
+        return_transformation=False,
+        augment_data=False,
+        config=None,
+        **kwargs,
+    ):
+        super().__init__(
+            data_paths,
+            prevoxel_transform=prevoxel_transform,
+            input_transform=input_transform,
+            target_transform=target_transform,
+            cache=cache,
+            data_root=data_root,
+            ignore_mask=ignore_mask,
+            return_transformation=return_transformation,
+            augment_data=augment_data,
+            config=config,
+            **kwargs,
+        )
 
     def Transform(self, a):
         scale = 20
@@ -432,7 +400,7 @@ class VoxelizationDataset(VoxelizationDatasetBase):
         return tuple(return_args)
 
 
-class TemporalVoxelizationDataset(VoxelizationDataset):
+class TemporalVoxelizationDataset(VoxelizedDataset):
 
     IS_TEMPORAL = True
 
@@ -449,7 +417,7 @@ class TemporalVoxelizationDataset(VoxelizationDataset):
                  augment_data=False,
                  config=None,
                  **kwargs):
-        VoxelizationDataset.__init__(self,
+        VoxelizedDataset.__init__(self,
                                      data_paths,
                                      prevoxel_transform=prevoxel_transform,
                                      input_transform=input_transform,
