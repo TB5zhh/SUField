@@ -40,7 +40,7 @@ def datasetphase_2str(arg):
     elif arg == DatasetPhase.Test:
         return 'test'
     else:
-        raise ValueError('phase must be one of dataset enum.')
+        raise ValueError('split must be one of dataset enum.')
 
 
 def str2datasetphase_type(arg):
@@ -55,7 +55,7 @@ def str2datasetphase_type(arg):
     elif arg.upper() == 'TEST':
         return DatasetPhase.Test
     else:
-        raise ValueError('phase must be one of train/val/test')
+        raise ValueError('split must be one of train/val/test')
 
 
 def cache(func):
@@ -535,7 +535,7 @@ class TemporalVoxelizationDataset(VoxelizationDataset):
 
 def initialize_data_loader(DatasetClass,
                            config,
-                           phase,
+                           split,
                            num_workers,
                            shuffle,
                            repeat,
@@ -544,8 +544,8 @@ def initialize_data_loader(DatasetClass,
                            limit_numpoints,
                            input_transform=None,
                            target_transform=None):
-    if isinstance(phase, str):
-        phase = str2datasetphase_type(phase)
+    if isinstance(split, str):
+        split = str2datasetphase_type(split)
 
     if config.return_transformation:
         collate_fn = t.cflt_collate_fn_factory(limit_numpoints)
@@ -589,7 +589,7 @@ def initialize_data_loader(DatasetClass,
                            target_transform=target_transform,
                            cache=config.cache_data,
                            augment_data=augment_data,
-                           phase=phase)
+                           split=split)
 
     data_args = {
         'dataset': dataset,
