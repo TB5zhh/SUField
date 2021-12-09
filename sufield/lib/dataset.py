@@ -1,23 +1,20 @@
-from abc import ABC
-from pathlib import Path
-from collections import defaultdict
-
-import random
-import numpy as np
-from enum import Enum
-import open3d as o3d
-
-import torch
 import math
-from torch.utils.data import Dataset, DataLoader
+import random
+from abc import ABC
+from collections import defaultdict
+from enum import Enum
+from pathlib import Path
 
 import MinkowskiEngine as ME
-
+import numpy as np
+import open3d as o3d
+import sufield.lib.transforms as t
+import torch
 from plyfile import PlyData
-import lib.transforms as t
-from lib.dataloader import InfSampler, DistributedInfSampler
-from lib.voxelizer import Voxelizer, testVoxelizer
-from lib.distributed_utils import get_world_size
+from sufield.lib.dataloader import DistributedInfSampler, InfSampler
+from sufield.lib.distributed_utils import get_world_size
+from sufield.lib.voxelizer import Voxelizer, testVoxelizer
+from torch.utils.data import DataLoader, Dataset
 
 
 class DatasetPhase(Enum):
@@ -252,7 +249,7 @@ class VoxelizedTestDataset(VoxelizedDatasetBase):
     This dataset loads RGB point clouds and their labels as a list of points
     and voxelizes the pointcloud with sufficient data augmentation.
     """
-    VARIANT = 'train'
+    VARIANT = 'test'
     def __init__(
         self,
         data_paths,
