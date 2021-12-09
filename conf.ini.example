@@ -1,0 +1,12 @@
+[DEFAULT]
+ScannetDatasetDir = data/scannetv2
+
+[SpectralClustering]
+DistanceProportion = 0.1
+TargetFaceNum = 40000
+QualityThreshold = 0.8
+MeshHeatT = 1.0
+NormalKnnRange = 10
+AutoTemperature = yes
+Temperature = 0.1
+Shots = 20
