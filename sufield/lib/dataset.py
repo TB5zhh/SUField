@@ -13,7 +13,7 @@ import torch
 from plyfile import PlyData
 from sufield.lib.dataloader import DistributedInfSampler, InfSampler
 from sufield.lib.distributed_utils import get_world_size
-from sufield.lib.voxelizer import Voxelizer, testVoxelizer
+from sufield.lib.voxelizer import Voxelizer, TestVoxelizer
 from torch.utils.data import DataLoader, Dataset
 
 
@@ -153,7 +153,7 @@ class VoxelizedDatasetBase(DictDataset, ABC):
         if self.VARIANT == 'train':
             VoxelizerCls = Voxelizer
         else:
-            VoxelizerCls = testVoxelizer
+            VoxelizerCls = TestVoxelizer
 
         self.voxelizer = VoxelizerCls(voxel_size=self.VOXEL_SIZE,
                                       clip_bound=self.CLIP_BOUND,
