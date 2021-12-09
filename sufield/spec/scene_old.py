@@ -255,7 +255,7 @@ def run(ply_path, args):
                         plydata['vertex']['y'], \
                         plydata['vertex']['z']),
                         axis=1))
-        
+
         selected_label = torch.load(f'new_results_{args.shots}/data/{ply_name}-selected.obj')['labels']
 
         ds_selected_indices = torch.load(f'new_results_{args.shots}/data/{ply_name}-ds_selected_indices.obj')
@@ -276,9 +276,7 @@ def run(ply_path, args):
         # Filter the coordinates and labels of selected points
         selected_coords = full_coords.index_select(0, selected_indices)
         selected_label = full_labels.index_select(0, selected_indices)
-        torch.save({
-            'labels': selected_label
-        }, f'new_results_{args.shots}/data/{ply_name}-selected.obj')
+        torch.save({'labels': selected_label}, f'new_results_{args.shots}/data/{ply_name}-selected.obj')
 
         # + ======================
         # Downsample the scene
@@ -491,7 +489,7 @@ def run(ply_path, args):
     # Restoring
     starttime = datetime.now()
 
-    FULL_DATA_PATH = '/home/aidrive/tb5zhh/data/full_mesh/train'    
+    FULL_DATA_PATH = '/home/aidrive/tb5zhh/data/full_mesh/train'
     ply_data = PlyData.read(f'{FULL_DATA_PATH}/{ply_name}.ply')
     ds_predictions = label_indices
     ds_mapping = full_indices2ds_indices
@@ -514,7 +512,7 @@ def run(ply_path, args):
         np.stack((ply_data['vertex']['x'], \
                     ply_data['vertex']['y'], \
                     ply_data['vertex']['z']),
-                    axis=1)) 
+                    axis=1))
     ds_coords_center = ds_coords.mean(dim=0)
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(ds_coords.cpu())
@@ -537,7 +535,7 @@ def run(ply_path, args):
 
 # %%
 def restore(ply_path, args):
-    
+
     starttime = datetime.now()
 
     ply_name = ply_path.split('/')[-1].split('.')[0]
@@ -557,7 +555,7 @@ def restore(ply_path, args):
         ply_data['vertex']['green'][i] = ply_data_geod['vertex']['green'][ds_mapping[i]]
         ply_data['vertex']['blue'][i] = ply_data_geod['vertex']['blue'][ds_mapping[i]]
     ply_data.write(f'new_results_{args.shots}/visualized/{ply_name}-geod-raw.ply')
-    
+
     # ply_data_geod = PlyData.read(f'new_results_{args.shots}/visualized/{ply_name}-normal.ply')
     # for i in range(len(ply_data['vertex'])):
     #     ply_data['vertex']['red'][i] = ply_data_geod['vertex']['red'][ds_mapping[i]]
@@ -569,7 +567,7 @@ def restore(ply_path, args):
         np.stack((ply_data['vertex']['x'], \
                     ply_data['vertex']['y'], \
                     ply_data['vertex']['z']),
-                    axis=1)) 
+                    axis=1))
     ds_coords_center = ds_coords.mean(dim=0)
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(ds_coords.cpu())
@@ -604,10 +602,10 @@ if __name__ == '__main__':
     import sys
     start = int(sys.argv[1])
     end = int(sys.argv[2])
-    args.shots=int(sys.argv[3])
+    args.shots = int(sys.argv[3])
     print(args.shots)
-#    iters = sorted(os.listdir(DATA_PATH))[244:750]
-#    iters = sorted(os.listdir(DATA_PATH))[852:]
+    #    iters = sorted(os.listdir(DATA_PATH))[244:750]
+    #    iters = sorted(os.listdir(DATA_PATH))[852:]
     iters = sorted(os.listdir(DATA_PATH))
     for id, ply_file in enumerate(iters[start:min(end, len(iters))]):
         print(f"============================= {ply_file} #{id}/{min(end,len(iters))-start} =============================")

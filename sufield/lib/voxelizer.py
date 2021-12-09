@@ -5,9 +5,11 @@ import numpy as np
 import open3d as o3d
 from scipy.linalg import expm, norm
 
+
 # Rotation matrix along axis with angle theta
 def M(axis, theta):
     return expm(np.cross(np.eye(3), axis / norm(axis) * theta))
+
 
 class VoxelizerBase():
 

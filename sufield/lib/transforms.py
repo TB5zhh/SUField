@@ -51,8 +51,7 @@ class ChromaticAutoContrast(object):
             # hi = mean + std
             lo = feats[:, :3].min(0, keepdims=True)
             hi = feats[:, :3].max(0, keepdims=True)
-            assert hi.max(
-            ) > 1, f"invalid color value. Color is supposed to be [0-255]"
+            assert hi.max() > 1, f"invalid color value. Color is supposed to be [0-255]"
 
             scale = 255 / (hi - lo)
 
@@ -100,8 +99,7 @@ class HueSaturationTranslation(object):
         rc[mask] = (maxc - r)[mask] / (maxc - minc)[mask]
         gc[mask] = (maxc - g)[mask] / (maxc - minc)[mask]
         bc[mask] = (maxc - b)[mask] / (maxc - minc)[mask]
-        hsv[..., 0] = np.select([r == maxc, g == maxc], [
-                                bc - gc, 2.0 + rc - bc], default=4.0 + gc - rc)
+        hsv[..., 0] = np.select([r == maxc, g == maxc], [bc - gc, 2.0 + rc - bc], default=4.0 + gc - rc)
         hsv[..., 0] = (hsv[..., 0] / 6.0) % 1.0
         return hsv
 
@@ -137,8 +135,7 @@ class HueSaturationTranslation(object):
         sat_ratio = 1 + (random.random() - 0.5) * 2 * self.saturation_max
         hsv[..., 0] = np.remainder(hue_val + hsv[..., 0] + 1, 1)
         hsv[..., 1] = np.clip(sat_ratio * hsv[..., 1], 0, 1)
-        feats[:, :3] = np.clip(
-            HueSaturationTranslation.hsv_to_rgb(hsv), 0, 255)
+        feats[:, :3] = np.clip(HueSaturationTranslation.hsv_to_rgb(hsv), 0, 255)
 
         return coords, feats, labels
 
@@ -191,15 +188,13 @@ def Transform(a):
     #a = a[:, 1:]
     full_scale = 4096
     scale = 50
-    m = np.eye(3)+np.random.randn(3, 3)*0.1
-    m[0][0] *= np.random.randint(0, 2)*2-1
+    m = np.eye(3) + np.random.randn(3, 3) * 0.1
+    m[0][0] *= np.random.randint(0, 2) * 2 - 1
     #m *= scale
-    theta = np.random.rand()*2*math.pi
-    m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0],
-                    [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])
+    theta = np.random.rand() * 2 * math.pi
+    m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0], [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])
     a = np.matmul(a, m)
     return a
-
 
 
 class ElasticDistortion:
@@ -220,27 +215,18 @@ class ElasticDistortion:
         coords_min = coords.min(0)
 
         # Create Gaussian noise tensor of the size given by granularity.
-        noise_dim = ((coords - coords_min).max(0) //
-                     granularity).astype(int) + 3
+        noise_dim = ((coords - coords_min).max(0) // granularity).astype(int) + 3
         noise = np.random.randn(*noise_dim, 3).astype(np.float32)
 
         # Smoothing.
         for _ in range(2):
-            noise = scipy.ndimage.filters.convolve(
-                noise, blurx, mode='constant', cval=0)
-            noise = scipy.ndimage.filters.convolve(
-                noise, blury, mode='constant', cval=0)
-            noise = scipy.ndimage.filters.convolve(
-                noise, blurz, mode='constant', cval=0)
+            noise = scipy.ndimage.filters.convolve(noise, blurx, mode='constant', cval=0)
+            noise = scipy.ndimage.filters.convolve(noise, blury, mode='constant', cval=0)
+            noise = scipy.ndimage.filters.convolve(noise, blurz, mode='constant', cval=0)
 
         # Trilinear interpolate noise filters for each spatial dimensions.
-        ax = [
-            np.linspace(d_min, d_max, d)
-            for d_min, d_max, d in zip(coords_min - granularity, coords_min + granularity *
-                                       (noise_dim - 2), noise_dim)
-        ]
-        interp = scipy.interpolate.RegularGridInterpolator(
-            ax, noise, bounds_error=0, fill_value=0)
+        ax = [np.linspace(d_min, d_max, d) for d_min, d_max, d in zip(coords_min - granularity, coords_min + granularity * (noise_dim - 2), noise_dim)]
+        interp = scipy.interpolate.RegularGridInterpolator(ax, noise, bounds_error=0, fill_value=0)
         if granularity == 0.2:
             coords = Transform(coords)
         coords += interp(coords) * magnitude
@@ -250,8 +236,7 @@ class ElasticDistortion:
         if self.distortion_params is not None:
             if random.random() < 0.95:
                 for granularity, magnitude in self.distortion_params:
-                    coords, feats, labels = self.elastic_distortion(coords, feats, labels, granularity,
-                                                                    magnitude)
+                    coords, feats, labels = self.elastic_distortion(coords, feats, labels, granularity, magnitude)
         return coords, feats, labels
 
 
@@ -291,12 +276,8 @@ class cfl_collate_fn_factory:
             batch_num_points += num_points
             batch1_num_points += num_points1
             # coords_batch.append(torch.from_numpy(coords[batch_id]).int())
-            coords_batch.append(
-                torch.cat((torch.ones(num_points, 1).int() * batch_id, torch.from_numpy(
-                    coords[batch_id]).int()), 1))
-            coords1_batch.append(
-                torch.cat((torch.ones(num_points1, 1).int() * batch_id, torch.from_numpy(
-                    coords1[batch_id]).int()), 1))            
+            coords_batch.append(torch.cat((torch.ones(num_points, 1).int() * batch_id, torch.from_numpy(coords[batch_id]).int()), 1))
+            coords1_batch.append(torch.cat((torch.ones(num_points1, 1).int() * batch_id, torch.from_numpy(coords1[batch_id]).int()), 1))
             feats_batch.append(torch.from_numpy(feats[batch_id]))
             labels_batch.append(torch.from_numpy(labels[batch_id]).int())
             feats_batch1.append(torch.from_numpy(feats1[batch_id]))
@@ -338,15 +319,11 @@ class cf_collate_fn_factory:
             if self.limit_numpoints and batch_num_points > self.limit_numpoints:
                 num_full_points = sum(len(c) for c in coords)
                 num_full_batch_size = len(coords)
-                logging.warning(
-                    f'\t\tCannot fit {num_full_points} points into {self.limit_numpoints} points '
-                    f'limit. Truncating batch size at {batch_id} out of {num_full_batch_size} with {batch_num_points - num_points}.'
-                )
+                logging.warning(f'\t\tCannot fit {num_full_points} points into {self.limit_numpoints} points '
+                                f'limit. Truncating batch size at {batch_id} out of {num_full_batch_size} with {batch_num_points - num_points}.')
                 break
             # coords_batch.append(torch.from_numpy(coords[batch_id]).int())
-            coords_batch.append(
-                torch.cat((torch.ones(num_points, 1).int() * batch_id, torch.from_numpy(
-                    coords[batch_id]).int()), 1))
+            coords_batch.append(torch.cat((torch.ones(num_points, 1).int() * batch_id, torch.from_numpy(coords[batch_id]).int()), 1))
             feats_batch.append(torch.from_numpy(feats[batch_id]))
             labels_batch.append(torch.from_numpy(labels[batch_id]).int())
 
@@ -373,10 +350,8 @@ class cflt_collate_fn_factory:
 
     def __call__(self, list_data):
         coords, feats, labels, transformations = list(zip(*list_data))
-        cfl_collate_fn = cfl_collate_fn_factory(
-            limit_numpoints=self.limit_numpoints)
-        coords_batch, feats_batch, labels_batch = cfl_collate_fn(
-            list(zip(coords, feats, labels)))
+        cfl_collate_fn = cfl_collate_fn_factory(limit_numpoints=self.limit_numpoints)
+        coords_batch, feats_batch, labels_batch = cfl_collate_fn(list(zip(coords, feats, labels)))
         num_truncated_batch = coords_batch[:, -1].max().item() + 1
 
         batch_id = 0
@@ -386,11 +361,7 @@ class cflt_collate_fn_factory:
             if batch_id >= num_truncated_batch:
                 break
             # transformations_batch.append(torch.from_numpy(transformation).float())
-            transformations_batch.append(
-                torch.cat(
-                    (torch.from_numpy(transformation), torch.ones(
-                        transformation.shape[0], 1) * batch_id),
-                    1))
+            transformations_batch.append(torch.cat((torch.from_numpy(transformation), torch.ones(transformation.shape[0], 1) * batch_id), 1))
             batch_id += 1
         pointclouds_batch = torch.cat(pointclouds_batch, 0).float()
         transformations_batch = torch.cat(transformations_batch, 0).float()
@@ -399,31 +370,24 @@ class cflt_collate_fn_factory:
 
 
 def elastic(x, gran, mag):
-    blur0 = np.ones((3, 1, 1)).astype('float32')/3
-    blur1 = np.ones((1, 3, 1)).astype('float32')/3
-    blur2 = np.ones((1, 1, 3)).astype('float32')/3
-    bb = np.abs(x).max(0).astype(np.int32)//gran+3
-    noise = [np.random.randn(bb[0], bb[1], bb[2]).astype(
-        'float32') for _ in range(3)]
-    noise = [scipy.ndimage.filters.convolve(
-        n, blur0, mode='constant', cval=0) for n in noise]
-    noise = [scipy.ndimage.filters.convolve(
-        n, blur1, mode='constant', cval=0) for n in noise]
-    noise = [scipy.ndimage.filters.convolve(
-        n, blur2, mode='constant', cval=0) for n in noise]
-    noise = [scipy.ndimage.filters.convolve(
-        n, blur0, mode='constant', cval=0) for n in noise]
-    noise = [scipy.ndimage.filters.convolve(
-        n, blur1, mode='constant', cval=0) for n in noise]
-    noise = [scipy.ndimage.filters.convolve(
-        n, blur2, mode='constant', cval=0) for n in noise]
-    ax = [np.linspace(-(b-1)*gran, (b-1)*gran, b) for b in bb]
-    interp = [scipy.interpolate.RegularGridInterpolator(
-        ax, n, bounds_error=0, fill_value=0) for n in noise]
+    blur0 = np.ones((3, 1, 1)).astype('float32') / 3
+    blur1 = np.ones((1, 3, 1)).astype('float32') / 3
+    blur2 = np.ones((1, 1, 3)).astype('float32') / 3
+    bb = np.abs(x).max(0).astype(np.int32) // gran + 3
+    noise = [np.random.randn(bb[0], bb[1], bb[2]).astype('float32') for _ in range(3)]
+    noise = [scipy.ndimage.filters.convolve(n, blur0, mode='constant', cval=0) for n in noise]
+    noise = [scipy.ndimage.filters.convolve(n, blur1, mode='constant', cval=0) for n in noise]
+    noise = [scipy.ndimage.filters.convolve(n, blur2, mode='constant', cval=0) for n in noise]
+    noise = [scipy.ndimage.filters.convolve(n, blur0, mode='constant', cval=0) for n in noise]
+    noise = [scipy.ndimage.filters.convolve(n, blur1, mode='constant', cval=0) for n in noise]
+    noise = [scipy.ndimage.filters.convolve(n, blur2, mode='constant', cval=0) for n in noise]
+    ax = [np.linspace(-(b - 1) * gran, (b - 1) * gran, b) for b in bb]
+    interp = [scipy.interpolate.RegularGridInterpolator(ax, n, bounds_error=0, fill_value=0) for n in noise]
 
     def g(x_):
         return np.hstack([i(x_)[:, None] for i in interp])
-    return x+g(x)*mag
+
+    return x + g(x) * mag
 
 
 class btTransform:
@@ -433,32 +397,28 @@ class btTransform:
         a = a[:, 1:]
         full_scale = 4096
         scale = 50
-        m = np.eye(3)+np.random.randn(3, 3)*0.1
-        m[0][0] *= np.random.randint(0, 2)*2-1
+        m = np.eye(3) + np.random.randn(3, 3) * 0.1
+        m[0][0] *= np.random.randint(0, 2) * 2 - 1
         #m *= scale
-        theta = np.random.rand()*2*math.pi
-        m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0],
-                      [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])
+        theta = np.random.rand() * 2 * math.pi
+        m = np.matmul(m, [[math.cos(theta), math.sin(theta), 0], [-math.sin(theta), math.cos(theta), 0], [0, 0, 1]])
         a = np.matmul(a, m)
         #a = elastic(a, 6*scale//50, 40*scale/50)
         #a = elastic(a, 20*scale//50, 160*scale/50)
         #m = a.min(0)
         #M = a.max(0)
         #offset = -m+np.clip(full_scale-M+m-0.001, 0, None)*np.random.rand(3) + \
-            #np.clip(full_scale-M+m+0.001, None, 0)*np.random.rand(3)
+        #np.clip(full_scale-M+m+0.001, None, 0)*np.random.rand(3)
         #a += offset
         return a
 
-    def __init__(self,limit_numpoints=0):
+    def __init__(self, limit_numpoints=0):
         self.limit_numpoints = limit_numpoints
-
 
     def __call__(self, list_data):
         coords, feats, labels = list(zip(*list_data))
-        cfl_collate_fn = cfl_collate_fn_factory(
-            limit_numpoints=self.limit_numpoints)
-        coords_batch, feats_batch, labels_batch = cfl_collate_fn(
-            list(zip(coords, feats, labels)))
+        cfl_collate_fn = cfl_collate_fn_factory(limit_numpoints=self.limit_numpoints)
+        coords_batch, feats_batch, labels_batch = cfl_collate_fn(list(zip(coords, feats, labels)))
         coord = coords_batch.numpy()
         coords1 = torch.from_numpy(self.Transform(coord))
         coords2 = torch.from_numpy(self.Transform(coord))

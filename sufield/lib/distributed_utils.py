@@ -14,7 +14,6 @@ import torch
 import torch.distributed as dist
 
 
-
 def is_master(args):
     return args.distributed_rank == 0
 
@@ -24,9 +23,7 @@ def infer_init_method(args):
         return
 
     # support torch.distributed.launch
-    if all(key in os.environ for key in [
-        'MASTER_ADDR', 'MASTER_PORT', 'WORLD_SIZE', 'RANK'
-    ]):
+    if all(key in os.environ for key in ['MASTER_ADDR', 'MASTER_PORT', 'WORLD_SIZE', 'RANK']):
         args.distributed_init_method = 'env://'
         args.distributed_world_size = int(os.environ['WORLD_SIZE'])
         args.distributed_rank = int(os.environ['RANK'])
@@ -75,16 +72,14 @@ def distributed_init(args):
     if torch.distributed.is_initialized():
         warnings.warn('Distributed is already initialized, cannot initialize twice!')
     else:
-        print('| distributed init (rank {}): {}'.format(
-            args.distributed_rank, args.distributed_init_method), flush=True)
+        print('| distributed init (rank {}): {}'.format(args.distributed_rank, args.distributed_init_method), flush=True)
         dist.init_process_group(
             backend=args.distributed_backend,
             init_method=args.distributed_init_method,
             world_size=args.distributed_world_size,
             rank=args.distributed_rank,
         )
-        print('| initialized host {} as rank {}'.format(
-            socket.gethostname(), args.distributed_rank), flush=True)
+        print('| initialized host {} as rank {}'.format(socket.gethostname(), args.distributed_rank), flush=True)
 
         # perform a dummy all-reduce to initialize the NCCL communicator
         if torch.cuda.is_available():
@@ -121,6 +116,7 @@ def get_world_size():
     except AssertionError:
         return 1
 
+
 def get_default_group():
     return dist.group.WORLD
 
@@ -132,6 +128,7 @@ def all_reduce(tensor, op='sum', group=None):
     if op == 'mean':
         return output / get_world_size()
     return output
+
 
 def all_gather_list(data, group=None, max_size=16384):
     """Gathers arbitrary data from all nodes into a list.
@@ -180,11 +177,9 @@ def all_gather_list(data, group=None, max_size=16384):
                 result.append(pickle.loads(bytes(out_buffer[header_size:header_size + enc_size].tolist())))
         return result
     except pickle.UnpicklingError:
-        raise Exception(
-            'Unable to unpickle data from other workers. all_gather_list requires all '
-            'workers to enter the function together, so this error usually indicates '
-            'that the workers have fallen out of sync somehow. Workers can fall out of '
-            'sync if one of them runs out of memory, or if there are other conditions '
-            'in your training script that can cause one worker to finish an epoch '
-            'while other workers are still iterating over their portions of the data.'
-        )
+        raise Exception('Unable to unpickle data from other workers. all_gather_list requires all '
+                        'workers to enter the function together, so this error usually indicates '
+                        'that the workers have fallen out of sync somehow. Workers can fall out of '
+                        'sync if one of them runs out of memory, or if there are other conditions '
+                        'in your training script that can cause one worker to finish an epoch '
+                        'while other workers are still iterating over their portions of the data.')

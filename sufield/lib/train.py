@@ -21,6 +21,7 @@ from IPython import embed
 
 import pointnet2._ext as p2
 
+
 def _set_seed(config, step):
     # Set seed based on args.seed and the update number so that we get
     # reproducible results when resuming from checkpoints
@@ -30,8 +31,7 @@ def _set_seed(config, step):
 
 
 def validate(model, val_data_loader, writer, curr_iter, config, transform_data_fn):
-    v_loss, v_score, v_mAP, v_mIoU = test(
-        model, val_data_loader, config, transform_data_fn)
+    v_loss, v_score, v_mAP, v_mIoU = test(model, val_data_loader, config, transform_data_fn)
     writer.add_scalar('validation/mIoU', v_mIoU, curr_iter)
     writer.add_scalar('validation/loss', v_loss, curr_iter)
     writer.add_scalar('validation/precision_at_1', v_score, curr_iter)
@@ -70,8 +70,8 @@ def lossforward(x, y):
     #covnp = cov.cpu().detach().numpy()
     #np.save('/home/aidrive1/workspace/luoly/dataset/Min_scan/bt_train/cov/cov_%02d.npy' % (i), covnp)
     ret = cov - torch.eye(cov.shape[0]).cuda()
-    on_diag = torch.diagonal(ret).add_(-1).pow_(2).sum().mul(1/512)
-    off_diag = off_diagonal(ret).pow_(2).sum().mul(1/512)
+    on_diag = torch.diagonal(ret).add_(-1).pow_(2).sum().mul(1 / 512)
+    off_diag = off_diagonal(ret).pow_(2).sum().mul(1 / 512)
     loss = on_diag + lambd * off_diag
     return loss
 
@@ -101,32 +101,26 @@ def train(model, data_loader, val_data_loader, config, transform_data_fn=None):
     # writer = SummaryWriter(log_dir=config.log_dir)
 
     # Train the network
-    logging.info('===> Start training on {} GPUs, batch-size={}'.format(
-        get_world_size(), config.batch_size * get_world_size()
-    ))
+    logging.info('===> Start training on {} GPUs, batch-size={}'.format(get_world_size(), config.batch_size * get_world_size()))
     best_val_miou, best_val_iter, curr_iter, epoch, is_training = 0, 0, 1, 1, True
 
     if config.resume:
         checkpoint_fn = config.resume + '/weights.pth'
         if osp.isfile(checkpoint_fn):
             logging.info("=> loading checkpoint '{}'".format(checkpoint_fn))
-            state = torch.load(checkpoint_fn, map_location=lambda s,
-                               l: default_restore_location(s, 'cpu'))
+            state = torch.load(checkpoint_fn, map_location=lambda s, l: default_restore_location(s, 'cpu'))
             curr_iter = state['iteration'] + 1
             epoch = state['epoch']
             model.load_state_dict(state['state_dict'])
             if config.resume_optimizer:
-                scheduler = initialize_scheduler(
-                    optimizer, config, last_step=curr_iter)
+                scheduler = initialize_scheduler(optimizer, config, last_step=curr_iter)
                 optimizer.load_state_dict(state['optimizer'])
             if 'best_val' in state:
                 best_val_miou = state['best_val']
                 best_val_iter = state['best_val_iter']
-            logging.info("=> loaded checkpoint '{}' (epoch {})".format(
-                checkpoint_fn, state['epoch']))
+            logging.info("=> loaded checkpoint '{}' (epoch {})".format(checkpoint_fn, state['epoch']))
         else:
-            raise ValueError(
-                "=> no checkpoint found at '{}'".format(checkpoint_fn))
+            raise ValueError("=> no checkpoint found at '{}'".format(checkpoint_fn))
 
     data_iter = data_loader.__iter__()
     while is_training:
@@ -156,10 +150,12 @@ def train(model, data_loader, val_data_loader, config, transform_data_fn=None):
                 #sinput1 = ME.SparseTensor(input1.to(device), coords1.int().to(device))
                 #sinput2 = ME.SparseTensor(input2.to(device), coords2.int().to(device))
 
-                tfield1 = ME.TensorField(coordinates=coords1.int().to(device), features=input1.to(
-                    device), quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
-                tfield2 = ME.TensorField(coordinates=coords2.int().to(device), features=input2.to(
-                    device), quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
+                tfield1 = ME.TensorField(coordinates=coords1.int().to(device),
+                                         features=input1.to(device),
+                                         quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
+                tfield2 = ME.TensorField(coordinates=coords2.int().to(device),
+                                         features=input2.to(device),
+                                         quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
 
                 # print(len(tfield1))  # 227742
                 # print(len(tfield2))
@@ -175,10 +171,8 @@ def train(model, data_loader, val_data_loader, config, transform_data_fn=None):
 
                 # inputs = (sinput,) if config.wrapper_type == 'None' else (
                 # sinput, coords, color)
-                inputs1 = (sinput1,) if config.wrapper_type == 'None' else (
-                    sinput1, coords1, color1)
-                inputs2 = (sinput2,) if config.wrapper_type == 'None' else (
-                    sinput2, coords2, color2)
+                inputs1 = (sinput1,) if config.wrapper_type == 'None' else (sinput1, coords1, color1)
+                inputs2 = (sinput2,) if config.wrapper_type == 'None' else (sinput2, coords2, color2)
                 # model.initialize_coords(*init_args)
                 #soutput = model(*inputs)
                 soutput1 = model(*inputs1)
@@ -199,11 +193,10 @@ def train(model, data_loader, val_data_loader, config, transform_data_fn=None):
                 target1 = target1.long().to(device)
                 target2 = target2.long().to(device)
 
-                pindex = torch.randint(
-                    0, (ofield1.F).shape[0], (1024,)).to(device)
+                pindex = torch.randint(0, (ofield1.F).shape[0], (1024,)).to(device)
                 # logging.warn(ofield1.C.shape)
-                pindex1 = p2.furthest_point_sampling(ofield1.C[:, 1:].reshape((1,ofield1.C.shape[0],3)).contiguous(), 1024).reshape(1024).long()
-                pindex2 = p2.furthest_point_sampling(ofield2.C[:, 1:].reshape((1,ofield2.C.shape[0],3)).contiguous(), 1024).reshape(1024).long()
+                pindex1 = p2.furthest_point_sampling(ofield1.C[:, 1:].reshape((1, ofield1.C.shape[0], 3)).contiguous(), 1024).reshape(1024).long()
+                pindex2 = p2.furthest_point_sampling(ofield2.C[:, 1:].reshape((1, ofield2.C.shape[0], 3)).contiguous(), 1024).reshape(1024).long()
 
                 # embed()
                 # logging.warn(pindex1.shape)
@@ -229,15 +222,12 @@ def train(model, data_loader, val_data_loader, config, transform_data_fn=None):
                 loss.backward()
                 bw_timer.toc(False)
 
-                logging_output = {
-                    'loss': loss.item(), 'score': score / config.iter_size}
+                logging_output = {'loss': loss.item(), 'score': score / config.iter_size}
 
                 ddp_timer.tic()
                 if distributed:
                     logging_output = all_gather_list(logging_output)
-                    logging_output = {w: np.mean([
-                        a[w] for a in logging_output]
-                    ) for w in logging_output[0]}
+                    logging_output = {w: np.mean([a[w] for a in logging_output]) for w in logging_output[0]}
 
                 batch_loss += logging_output['loss']
                 batch_score += logging_output['score']
@@ -264,11 +254,8 @@ def train(model, data_loader, val_data_loader, config, transform_data_fn=None):
                 break
 
             if curr_iter % config.stat_freq == 0 or curr_iter == 1:
-                lrs = ', '.join(['{:.3e}'.format(x)
-                                for x in scheduler.get_lr()])
-                debug_str = "===> Epoch[{}]({}/{}): Loss {:.4f}\tLR: {}\t".format(
-                    epoch, curr_iter,
-                    len(data_loader) // config.iter_size, losses.avg, lrs)
+                lrs = ', '.join(['{:.3e}'.format(x) for x in scheduler.get_lr()])
+                debug_str = "===> Epoch[{}]({}/{}): Loss {:.4f}\tLR: {}\t".format(epoch, curr_iter, len(data_loader) // config.iter_size, losses.avg, lrs)
                 debug_str += "Score {:.3f}\tData time: {:.4f}, Forward time: {:.4f}, Backward time: {:.4f}, DDP time: {:.4f}, Total iter time: {:.4f}".format(
                     scores.avg, data_time_avg.avg, fw_time_avg.avg, bw_time_avg.avg, ddp_time_avg.avg, iter_time_avg.avg)
                 logging.info(debug_str)
@@ -278,35 +265,29 @@ def train(model, data_loader, val_data_loader, config, transform_data_fn=None):
                 # Write logs
                 if not distributed or get_rank() == 0:
                     writer.add_scalar('training/loss', losses.avg, curr_iter)
-                    writer.add_scalar('training/precision_at_1',
-                                      scores.avg, curr_iter)
-                    writer.add_scalar('training/learning_rate',
-                                      scheduler.get_lr()[0], curr_iter)
+                    writer.add_scalar('training/precision_at_1', scores.avg, curr_iter)
+                    writer.add_scalar('training/learning_rate', scheduler.get_lr()[0], curr_iter)
                 losses.reset()
                 scores.reset()
 
             # Save current status, save before val to prevent occational mem overflow
             if curr_iter % config.save_freq == 0:
-                checkpoint(model, optimizer, epoch, curr_iter,
-                           config, best_val_miou, best_val_iter)
+                checkpoint(model, optimizer, epoch, curr_iter, config, best_val_miou, best_val_iter)
 
             # Validation
             if curr_iter % config.val_freq == 0 and (not distributed or get_rank() == 0):
-                val_miou = validate(model, val_data_loader,
-                                    writer, curr_iter, config, transform_data_fn)
+                val_miou = validate(model, val_data_loader, writer, curr_iter, config, transform_data_fn)
                 if val_miou > best_val_miou:
                     best_val_miou = val_miou
                     best_val_iter = curr_iter
-                    checkpoint(model, optimizer, epoch, curr_iter, config, best_val_miou, best_val_iter,
-                               "best_val")
-                logging.info("Current best mIoU: {:.3f} at iter {}".format(
-                    best_val_miou, best_val_iter))
+                    checkpoint(model, optimizer, epoch, curr_iter, config, best_val_miou, best_val_iter, "best_val")
+                logging.info("Current best mIoU: {:.3f} at iter {}".format(best_val_miou, best_val_iter))
 
                 # Recover back
                 model.train()
 
             if curr_iter % config.empty_cache_freq == 0:
-              # Clear cache
+                # Clear cache
                 torch.cuda.empty_cache()
 
             # End of iteration
@@ -319,16 +300,12 @@ def train(model, data_loader, val_data_loader, config, transform_data_fn=None):
         data_iter.cleanup()
 
     # Save the final model
-    checkpoint(model, optimizer, epoch, curr_iter,
-               config, best_val_miou, best_val_iter)
+    checkpoint(model, optimizer, epoch, curr_iter, config, best_val_miou, best_val_iter)
     if not distributed or get_rank() == 0:
-        val_miou = validate(model, val_data_loader, writer,
-                            curr_iter, config, transform_data_fn)
+        val_miou = validate(model, val_data_loader, writer, curr_iter, config, transform_data_fn)
         if val_miou > best_val_miou:
             best_val_miou = val_miou
             best_val_iter = curr_iter
-            checkpoint(model, optimizer, epoch, curr_iter, config,
-                    best_val_miou, best_val_iter, "best_val")
+            checkpoint(model, optimizer, epoch, curr_iter, config, best_val_miou, best_val_iter, "best_val")
         writer.close()
-    logging.info("Current best mIoU: {:.3f} at iter {}".format(
-        best_val_miou, best_val_iter))
+    logging.info("Current best mIoU: {:.3f} at iter {}".format(best_val_miou, best_val_iter))

@@ -20,6 +20,7 @@ class HighDimensionalModel(Model):
     """
     Base network for all spatio (temporal) chromatic sparse convnet
     """
+
     def __init__(self, in_channels, out_channels, config, D, **kwargs):
         assert D > 4, "Num dimension smaller than 5"
         super(HighDimensionalModel, self).__init__(in_channels, out_channels, config, D, **kwargs)

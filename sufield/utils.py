@@ -1,6 +1,7 @@
 import numpy as np
 from plyfile import PlyData, PlyElement
 
+
 def read_plyfile(filepath):
     """Read ply file and return it as numpy array. Returns None if emtpy."""
     with open(filepath, 'rb') as f:
