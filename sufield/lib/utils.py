@@ -6,9 +6,18 @@ import time
 
 import numpy as np
 import torch
+import open3d as o3d
 
 from lib.pc_utils import colorize_pointcloud, save_point_cloud
 from lib.distributed_utils import get_world_size, get_rank
+
+
+def make_open3d_point_cloud(xyz, color=None):
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(xyz)
+    if color is not None:
+        pcd.colors = o3d.utility.Vector3dVector(color)
+    return pcd
 
 
 def load_state_with_same_shape(model, weights):

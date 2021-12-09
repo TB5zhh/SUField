@@ -33,14 +33,6 @@ def cache(func):
     return wrapper
 
 
-def make_open3d_point_cloud(xyz, color=None):
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(xyz)
-    if color is not None:
-        pcd.colors = o3d.utility.Vector3dVector(color)
-    return pcd
-
-
 class DictDataset(Dataset, ABC):
 
     IS_FULL_POINTCLOUD_EVAL = False
@@ -212,6 +204,7 @@ class VoxelizedTestDataset(VoxelizedDatasetBase):
     and voxelizes the pointcloud with sufficient data augmentation.
     """
     VARIANT = 'test'
+
     def __init__(
         self,
         data_paths,
@@ -281,6 +274,7 @@ class VoxelizedDataset(VoxelizedDatasetBase):
     and voxelizes the pointcloud with sufficient data augmentation.
     """
     VARIANT = 'train'
+
     def __init__(
         self,
         data_paths,
@@ -377,16 +371,16 @@ class TemporalVoxelizationDataset(VoxelizedDataset):
                  config=None,
                  **kwargs):
         VoxelizedDataset.__init__(self,
-                                     data_paths,
-                                     prevoxel_transform=prevoxel_transform,
-                                     input_transform=input_transform,
-                                     target_transform=target_transform,
-                                     data_root=data_root,
-                                     ignore_label=ignore_label,
-                                     return_transformation=return_transformation,
-                                     augment_data=augment_data,
-                                     config=config,
-                                     **kwargs)
+                                  data_paths,
+                                  prevoxel_transform=prevoxel_transform,
+                                  input_transform=input_transform,
+                                  target_transform=target_transform,
+                                  data_root=data_root,
+                                  ignore_label=ignore_label,
+                                  return_transformation=return_transformation,
+                                  augment_data=augment_data,
+                                  config=config,
+                                  **kwargs)
         self.temporal_dilation = temporal_dilation
         self.temporal_numseq = temporal_numseq
         temporal_window = temporal_dilation * (temporal_numseq - 1) + 1

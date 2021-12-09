@@ -5,19 +5,9 @@ import numpy as np
 import open3d as o3d
 from scipy.linalg import expm, norm
 
-
 # Rotation matrix along axis with angle theta
 def M(axis, theta):
     return expm(np.cross(np.eye(3), axis / norm(axis) * theta))
-
-
-def make_open3d_point_cloud(xyz, color=None):
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(xyz)
-    if color is not None:
-        pcd.colors = o3d.utility.Vector3dVector(color)
-    return pcd
-
 
 class VoxelizerBase():
 
