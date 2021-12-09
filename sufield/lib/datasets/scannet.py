@@ -4,8 +4,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from lib.dataset import (DatasetPhase, VoxelizedDataset, VoxelizedDatasetBase,
-                         VoxelizedTestDataset, str2datasetphase_type)
+from lib.dataset import VoxelizedDataset, VoxelizedDatasetBase, VoxelizedTestDataset
 from lib.pc_utils import read_plyfile, save_point_cloud
 from lib.utils import fast_hist, per_class_iu, read_txt
 from scipy import spatial
@@ -31,12 +30,7 @@ class ScannetVoxelizedDatasetBase(VoxelizedDatasetBase):
     IS_FULL_POINTCLOUD_EVAL = True
 
     # If trainval.txt does not exist, copy train.txt and add contents from val.txt
-    DATA_PATH_FILE = {
-        DatasetPhase.Train: 'scannetv2_train.txt',
-        DatasetPhase.Val: 'scannetv2_val.txt',
-        DatasetPhase.TrainVal: 'scannetv2_trainval.txt',
-        DatasetPhase.Test: 'scannetv2_test.txt'
-    }
+    DATA_PATH_FILE = {'train': 'scannetv2_train.txt', 'val': 'scannetv2_val.txt', 'trainval': 'scannetv2_trainval.txt', 'test': 'scannetv2_test.txt'}
 
     def __init__(
         self,
@@ -47,16 +41,15 @@ class ScannetVoxelizedDatasetBase(VoxelizedDatasetBase):
         augment_data=True,
         elastic_distortion=False,
         cache=False,
-        split=DatasetPhase.Train,
+        split='train',
     ):
-        if isinstance(split, str):
-            split = str2datasetphase_type(split)
+
         # Use cropped rooms for train/val
         if self.VARIANT == 'train':
             data_root = config.scannet_path
         else:
             data_root = config.scannet_test_path
-        if split not in [DatasetPhase.Train, DatasetPhase.TrainVal]:
+        if split not in ['train', 'trainval']:
             self.CLIP_BOUND = self.TEST_CLIP_BOUND
         data_paths = read_txt(os.path.join('./splits/scannet', self.DATA_PATH_FILE[split]))
         logging.info('Loading {}: {}'.format(self.__class__.__name__, self.DATA_PATH_FILE[split]))

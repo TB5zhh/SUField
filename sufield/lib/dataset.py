@@ -17,44 +17,6 @@ from sufield.lib.voxelizer import Voxelizer, testVoxelizer
 from torch.utils.data import DataLoader, Dataset
 
 
-class DatasetPhase(Enum):
-    Train = 0
-    Val = 1
-    Val2 = 2
-    TrainVal = 3
-    Test = 4
-
-
-def datasetphase_2str(arg):
-    if arg == DatasetPhase.Train:
-        return 'train'
-    elif arg == DatasetPhase.Val:
-        return 'val'
-    elif arg == DatasetPhase.Val2:
-        return 'val2'
-    elif arg == DatasetPhase.TrainVal:
-        return 'trainval'
-    elif arg == DatasetPhase.Test:
-        return 'test'
-    else:
-        raise ValueError('split must be one of dataset enum.')
-
-
-def str2datasetphase_type(arg):
-    if arg.upper() == 'TRAIN':
-        return DatasetPhase.Train
-    elif arg.upper() == 'VAL':
-        return DatasetPhase.Val
-    elif arg.upper() == 'VAL2':
-        return DatasetPhase.Val2
-    elif arg.upper() == 'TRAINVAL':
-        return DatasetPhase.TrainVal
-    elif arg.upper() == 'TEST':
-        return DatasetPhase.Test
-    else:
-        raise ValueError('split must be one of train/val/test')
-
-
 def cache(func):
 
     def wrapper(self, *args, **kwargs):
@@ -318,7 +280,7 @@ class VoxelizedDataset(VoxelizedDatasetBase):
     This dataset loads RGB point clouds and their labels as a list of points
     and voxelizes the pointcloud with sufficient data augmentation.
     """
-    VARIANT = 'test'
+    VARIANT = 'train'
     def __init__(
         self,
         data_paths,
@@ -509,9 +471,6 @@ def initialize_data_loader(DatasetClass,
                            limit_numpoints,
                            input_transform=None,
                            target_transform=None):
-    if isinstance(split, str):
-        split = str2datasetphase_type(split)
-
     if config.return_transformation:
         collate_fn = t.cflt_collate_fn_factory(limit_numpoints)
     else:
