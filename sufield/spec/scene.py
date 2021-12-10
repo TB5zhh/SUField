@@ -71,7 +71,7 @@ class SpecClusterPipeline():
         self.scan_id = scan_id
         self.conf = configparser.ConfigParser()
         self.conf.read(CONF_FILE)
-        self.conf = self.conf['SpectralClustering']
+        self.conf = self.conf['Default']
 
     def downsample(self, plydata: PlyData) -> PlyData:
 

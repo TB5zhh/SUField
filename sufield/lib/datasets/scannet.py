@@ -27,7 +27,7 @@ class ScannetVoxelizedDatasetBase(VoxelizedDatasetBase):
     LOCFEAT_IDX = 2
     NUM_LABELS = 41  # Will be converted to 20 as defined in IGNORE_LABELS.
     IGNORE_LABELS = tuple(set(range(41)) - set(VALID_CLASS_IDS))
-    IS_FULL_POINTCLOUD_EVAL = True
+    # IS_FULL_POINTCLOUD_EVAL = True
 
     # If trainval.txt does not exist, copy train.txt and add contents from val.txt
     DATA_PATH_FILE = {'train': 'scannetv2_train.txt', 'val': 'scannetv2_val.txt', 'trainval': 'scannetv2_trainval.txt', 'test': 'scannetv2_test.txt'}

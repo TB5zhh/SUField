@@ -35,7 +35,7 @@ def cache(func):
 
 class DictDataset(Dataset, ABC):
 
-    IS_FULL_POINTCLOUD_EVAL = False
+    # IS_FULL_POINTCLOUD_EVAL = False
 
     def __init__(self, data_paths, prevoxel_transform=None, input_transform=None, target_transform=None, cache=False, data_root='/'):
         """
@@ -90,11 +90,12 @@ class DictDataset(Dataset, ABC):
 
 class VoxelizedDatasetBase(DictDataset, ABC):
     IS_TEMPORAL = False
-    CLIP_BOUND = (-1000, -1000, -1000, 1000, 1000, 1000)
+    # CLIP_BOUND = (-1000, -1000, -1000, 1000, 1000, 1000)
     ROTATION_AXIS = None
-    NUM_IN_CHANNEL = None
+    # NUM_IN_CHANNEL = None
+    
     NUM_LABELS = -1  # Number of labels in the dataset, including all ignore classes
-    IGNORE_LABELS = None  # labels that are not evaluated
+    IGNORE_LABELS = None  # List of labels that are not evaluated
 
     # Voxelization arguments
     VOXEL_SIZE = 0.05  # 5cm
@@ -205,34 +206,6 @@ class VoxelizedTestDataset(VoxelizedDatasetBase):
     """
     VARIANT = 'test'
 
-    def __init__(
-        self,
-        data_paths,
-        prevoxel_transform=None,
-        input_transform=None,
-        target_transform=None,
-        cache=False,
-        data_root='/',
-        ignore_mask=255,
-        return_transformation=False,
-        augment_data=False,
-        config=None,
-        **kwargs,
-    ):
-        super().__init__(
-            data_paths,
-            prevoxel_transform=prevoxel_transform,
-            input_transform=input_transform,
-            target_transform=target_transform,
-            cache=cache,
-            data_root=data_root,
-            ignore_mask=ignore_mask,
-            return_transformation=return_transformation,
-            augment_data=augment_data,
-            config=config,
-            **kwargs,
-        )
-
     def __getitem__(self, index):
         coords, feats, labels, center = self.load_ply(index)
         # Downsample the pointcloud with finer voxel size before transformation for memory and speed
@@ -274,34 +247,6 @@ class VoxelizedDataset(VoxelizedDatasetBase):
     and voxelizes the pointcloud with sufficient data augmentation.
     """
     VARIANT = 'train'
-
-    def __init__(
-        self,
-        data_paths,
-        prevoxel_transform=None,
-        input_transform=None,
-        target_transform=None,
-        cache=False,
-        data_root='/',
-        ignore_mask=255,
-        return_transformation=False,
-        augment_data=False,
-        config=None,
-        **kwargs,
-    ):
-        super().__init__(
-            data_paths,
-            prevoxel_transform=prevoxel_transform,
-            input_transform=input_transform,
-            target_transform=target_transform,
-            cache=cache,
-            data_root=data_root,
-            ignore_mask=ignore_mask,
-            return_transformation=return_transformation,
-            augment_data=augment_data,
-            config=config,
-            **kwargs,
-        )
 
     def Transform(self, a):
         scale = 20
@@ -465,6 +410,14 @@ def initialize_data_loader(DatasetClass,
                            limit_numpoints,
                            input_transform=None,
                            target_transform=None):
+
+
+    """
+    prevoxel_transforms: tranformation applied before voxelization
+    """
+
+
+
     if config.return_transformation:
         collate_fn = t.cflt_collate_fn_factory(limit_numpoints)
     else:
@@ -495,6 +448,22 @@ def initialize_data_loader(DatasetClass,
             t.ChromaticJitter(config.data_aug_color_jitter_std),
             # t.HueSaturationTranslation(config.data_aug_hue_max, config.data_aug_saturation_max),
         ]
+
+    if augment_data:
+        prevoxel_transforms = t.Compose([t.ElasticDistortion(DatasetClass.ELASTIC_DISTORT_PARAMS)])
+        input_transforms = t.Compose([
+            t.RandomDropout(0.2),
+            t.RandomHorizontalFlip(DatasetClass.ROTATION_AXIS, DatasetClass.IS_TEMPORAL),
+            t.ChromaticAutoContrast(),
+            t.ChromaticTranslation(config.data_aug_color_trans_ratio),
+            t.ChromaticJitter(config.data_aug_color_jitter_std),
+            # t.HueSaturationTranslation(config.data_aug_hue_max, config.data_aug_saturation_max),
+        ])
+    else:
+        prevoxel_transforms = None
+        input_transforms = None
+
+
 
     if len(input_transforms) > 0:
         input_transforms = t.Compose(input_transforms)
