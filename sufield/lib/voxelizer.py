@@ -1,5 +1,3 @@
-import collections
-
 import MinkowskiEngine as ME
 import numpy as np
 import open3d as o3d
@@ -115,18 +113,18 @@ class VoxelizerBase():
             clip_indx_0 = (coords[:, 0] >= (self.clip_bound[0][0] + center[0])) & \
                 (coords[:, 0] < (self.clip_bound[0][1] + center[0]))
         else:
-            clip_indx_0 = True
+            clip_indx_0 = np.ones((coords.shape[0]), dtype=bool)
         if self.clip_bound[1] is not None:
             clip_indx_1 = (coords[:, 1] >= (self.clip_bound[1][0] + center[1])) & \
                 (coords[:, 1] < (self.clip_bound[1][1] + center[1]))
         else:
-            clip_indx_1 = True
+            clip_indx_1 = np.ones((coords.shape[0]), dtype=bool)
         if self.clip_bound[2] is not None:
             clip_indx_2 = (coords[:, 2] >= (self.clip_bound[2][0] + center[2])) & \
                 (coords[:, 2] < (self.clip_bound[2][1] + center[2]))
         else:
-            clip_indx_2 = True
-        
+            clip_indx_2 = np.ones((coords.shape[0]), dtype=bool)
+
         clip_inds = clip_indx_0 & clip_indx_1 & clip_indx_2
         return clip_inds
 
@@ -206,7 +204,16 @@ def test():
     labels = np.floor(np.random.rand(N) * 3)
     coords[:3] = 0
     labels[:3] = 2
-    voxelizer = TestVoxelizer(voxel_size=0.02)
+    voxelizer = TestVoxelizer(
+        voxel_size=0.02,
+        clip_bound=(None, None, None),
+        use_augmentation=True,
+        scale_augmentation_bound=(0.9, 1.1),
+        rotation_augmentation_bound=((np.pi / 2, np.pi / 2), None, None),
+    )
+    print(coords.shape)
+    print(feats.shape)
+    print(labels.shape)
     coords_aug, feats_aug, labels_aug, (transformation, indices) = voxelizer.voxelize(coords, feats, labels)
     print(coords)
     print(coords_aug)
