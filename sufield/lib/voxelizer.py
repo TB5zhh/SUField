@@ -84,8 +84,6 @@ class VoxelizerBase():
         Args:
         - coords: the coordinates of a pointcloud
         - center: the center of clipping. If not set, then treat the middle place of point cloud as center
-        - TODO update this trans_aug_ratio: the ratio of translation. The actual translation will be `ratio * bound_box_size`
-            the bound_box_size will be the rangeS of coordinates
 
         Return:
         - the indices of vertices inside clip limits
@@ -195,41 +193,3 @@ class TestVoxelizer(VoxelizerBase):
                                                                               return_index=True)
 
         return coords_aug, feats_aug, labels_aug, (rigid_transformation, indices)
-
-
-def test():
-    N = 16
-    coords = np.random.rand(N, 3) * 10
-    feats = np.random.rand(N, 4)
-    labels = np.floor(np.random.rand(N) * 3)
-    coords[:3] = 0
-    labels[:3] = 2
-    voxelizer = TestVoxelizer(
-        voxel_size=0.02,
-        clip_bound=(None, None, None),
-        use_augmentation=True,
-        scale_augmentation_bound=(0.9, 1.1),
-        rotation_augmentation_bound=((np.pi / 2, np.pi / 2), None, None),
-    )
-    print(coords.shape)
-    print(feats.shape)
-    print(labels.shape)
-    coords_aug, feats_aug, labels_aug, (transformation, indices) = voxelizer.voxelize(coords, feats, labels)
-    print(coords)
-    print(coords_aug)
-    print("=======")
-    print("=======")
-    print(feats)
-    print(feats_aug)
-    print("=======")
-    print("=======")
-    print(labels)
-    print(labels_aug)
-    print("=======")
-    print("=======")
-    print(transformation)
-    print(indices)
-
-
-if __name__ == '__main__':
-    test()
