@@ -111,19 +111,28 @@ class VoxelizerBase():
         center += trans
 
         # Clip points outside the limit
-        clip_inds = \
-            (coords[:, 0] >= (self.clip_bound[0][0] + center[0])) & \
-            (coords[:, 0] < (self.clip_bound[0][1] + center[0])) & \
-            (coords[:, 1] >= (self.clip_bound[1][0] + center[1])) & \
-            (coords[:, 1] < (self.clip_bound[1][1] + center[1])) & \
-            (coords[:, 2] >= (self.clip_bound[2][0] + center[2])) & \
-            (coords[:, 2] < (self.clip_bound[2][1] + center[2]))
+        if self.clip_bound[0] is not None:
+            clip_indx_0 = (coords[:, 0] >= (self.clip_bound[0][0] + center[0])) & \
+                (coords[:, 0] < (self.clip_bound[0][1] + center[0]))
+        else:
+            clip_indx_0 = True
+        if self.clip_bound[1] is not None:
+            clip_indx_1 = (coords[:, 1] >= (self.clip_bound[1][0] + center[1])) & \
+                (coords[:, 1] < (self.clip_bound[1][1] + center[1]))
+        else:
+            clip_indx_1 = True
+        if self.clip_bound[2] is not None:
+            clip_indx_2 = (coords[:, 2] >= (self.clip_bound[2][0] + center[2])) & \
+                (coords[:, 2] < (self.clip_bound[2][1] + center[2]))
+        else:
+            clip_indx_2 = True
+        
+        clip_inds = clip_indx_0 & clip_indx_1 & clip_indx_2
         return clip_inds
 
     def prevoxelize_transform(self, coords, feats, labels, center=None):
         assert coords.shape[1] == 3, 'Coordinates have dimensions other than 3'
         assert coords.shape[0] == feats.shape[0], 'different batch size for coords and feats'
-
         '''
         Clip the pointcloud if given a clip bound
         including random tranlation of center
@@ -133,7 +142,6 @@ class VoxelizerBase():
             coords, feats = coords[clip_inds], feats[clip_inds]
             if labels is not None:
                 labels = labels[clip_inds]
-
         '''
         Get scale (mainly for voxelization, random scale included) matrix and rotation matrix
         And apply them to the coords
@@ -141,7 +149,6 @@ class VoxelizerBase():
         M_v, M_r = self.get_transformation_matrix()
         homo_coords = np.hstack((coords, np.ones((coords.shape[0], 1), dtype=coords.dtype)))
         coords_aug = np.floor(homo_coords @ (M_r @ M_v).T[:, :3])
-
         '''
         Translate the point cloud so that all points have positive coordinates
         '''
@@ -151,7 +158,7 @@ class VoxelizerBase():
         M_t = np.eye(4)
         M_t[:3, -1] = -min_coords
         rigid_transformation = M_t @ M_r @ M_v
-        
+
         return coords_aug, feats, labels, rigid_transformation
 
     def voxelize(self):
@@ -164,7 +171,11 @@ class Voxelizer(VoxelizerBase):
         coords1_aug, feats1_aug, labels1_aug, rigid_transformation1 = self.prevoxelize_transform(coords1, feats1, labels1, center)
         coords2_aug, feats2_aug, labels2_aug, rigid_transformation2 = self.prevoxelize_transform(coords2, feats2, labels2, center)
 
-        coords1_aug, feats1_aug, labels1_aug, indices_map = ME.utils.sparse_quantize(coords1_aug, feats1_aug, labels=labels1_aug, ignore_label=self.ignore_label, return_index=True)
+        coords1_aug, feats1_aug, labels1_aug, indices_map = ME.utils.sparse_quantize(coords1_aug,
+                                                                                     feats1_aug,
+                                                                                     labels=labels1_aug,
+                                                                                     ignore_label=self.ignore_label,
+                                                                                     return_index=True)
         coords2_aug, feats2_aug, labels2_aug = coords2_aug[indices_map], feats2_aug[indices_map], labels2_aug[indices_map]
 
         return coords1_aug, feats1_aug, labels1_aug, coords2_aug, feats2_aug, labels2_aug, (rigid_transformation1, rigid_transformation2, indices_map)
@@ -178,8 +189,12 @@ class TestVoxelizer(VoxelizerBase):
 
     def voxelize(self, coords, feats, labels, center=None):
         coords_aug, feats_aug, labels_aug, rigid_transformation = self.prevoxelize_transform(coords, feats, labels, center)
-        
-        coords_aug, feats_aug, labels_aug, indices = ME.utils.sparse_quantize(coords_aug, feats_aug, labels=labels_aug, ignore_label=self.ignore_label, return_index=True)
+
+        coords_aug, feats_aug, labels_aug, indices = ME.utils.sparse_quantize(coords_aug,
+                                                                              feats_aug,
+                                                                              labels=labels_aug,
+                                                                              ignore_label=self.ignore_label,
+                                                                              return_index=True)
 
         return coords_aug, feats_aug, labels_aug, (rigid_transformation, indices)
 
