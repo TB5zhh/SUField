@@ -1,5 +1,4 @@
-import lib.datasets.scannet as scannet
-import lib.datasets.scannet_test as scannet_test
+import sufield.lib.data.datasets.scannet as scannet
 
 DATASETS = []
 
@@ -9,7 +8,6 @@ def add_datasets(module):
 
 
 add_datasets(scannet)
-add_datasets(scannet_test)
 
 
 def load_dataset(name):

@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from lib.dataset import VoxelizedDataset, VoxelizedDatasetBase, VoxelizedTestDataset
+from lib.data.dataset import VoxelizedDataset, VoxelizedDatasetBase, VoxelizedTestDataset
 from lib.pc_utils import read_plyfile, save_point_cloud
 from lib.utils import fast_hist, per_class_iu, read_txt
 from scipy import spatial
@@ -61,6 +61,9 @@ class ScannetVoxelizedDatasetBase(VoxelizedDatasetBase):
         return '_'.join(Path(self.data_paths[iteration]).stem.split('_')[:2])
 
     def test_pointcloud(self, pred_dir):
+        '''
+        TODO remove this method
+        '''
         print('Running full pointcloud evaluation.')
         eval_path = os.path.join(pred_dir, 'fulleval')
         os.makedirs(eval_path, exist_ok=True)

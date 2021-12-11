@@ -1,7 +1,8 @@
-import torch
 import math
-from torch.utils.data.sampler import Sampler
+
+import torch
 import torch.distributed as dist
+from torch.utils.data.sampler import Sampler
 
 
 class InfSampler(Sampler):

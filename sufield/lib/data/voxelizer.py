@@ -1,6 +1,5 @@
 import MinkowskiEngine as ME
 import numpy as np
-import open3d as o3d
 from scipy.linalg import expm, norm
 
 

@@ -1,19 +1,15 @@
 import math
-import random
 from abc import ABC
-from collections import defaultdict
-from enum import Enum
 from pathlib import Path
 
 import MinkowskiEngine as ME
 import numpy as np
-import open3d as o3d
 import sufield.lib.transforms as t
 import torch
 from plyfile import PlyData
-from sufield.lib.sampler import DistributedInfSampler, InfSampler
+from sufield.lib.data.sampler import DistributedInfSampler, InfSampler
+from sufield.lib.data.voxelizer import TestVoxelizer, Voxelizer
 from sufield.lib.distributed_utils import get_world_size
-from sufield.lib.voxelizer import Voxelizer, TestVoxelizer
 from torch.utils.data import DataLoader, Dataset
 
 
