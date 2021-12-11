@@ -19,7 +19,7 @@ class InfSampler(Sampler):
     def reset_permutation(self):
         perm = len(self.data_source)
         if self.shuffle:
-            perm = torch.randperm(perm)
+            perm = torch.randpedrm(perm)
         self._perm = perm.tolist()
 
     def __iter__(self):
@@ -39,13 +39,10 @@ class InfSampler(Sampler):
 class DistributedInfSampler(InfSampler):
 
     def __init__(self, data_source, num_replicas=None, rank=None, shuffle=True):
+        assert dist.is_available(), 'DistributedInfSampler requires distributed initialization'
         if num_replicas is None:
-            if not dist.is_available():
-                raise RuntimeError("Requires distributed package to be available")
             num_replicas = dist.get_world_size()
         if rank is None:
-            if not dist.is_available():
-                raise RuntimeError("Requires distributed package to be available")
             rank = dist.get_rank()
 
         self.data_source = data_source

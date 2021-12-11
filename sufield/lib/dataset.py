@@ -11,7 +11,7 @@ import open3d as o3d
 import sufield.lib.transforms as t
 import torch
 from plyfile import PlyData
-from sufield.lib.dataloader import DistributedInfSampler, InfSampler
+from sufield.lib.sampler import DistributedInfSampler, InfSampler
 from sufield.lib.distributed_utils import get_world_size
 from sufield.lib.voxelizer import Voxelizer, TestVoxelizer
 from torch.utils.data import DataLoader, Dataset
