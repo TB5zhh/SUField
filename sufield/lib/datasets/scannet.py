@@ -12,67 +12,53 @@ from sufield.config import CLASS_LABELS, SCANNET_COLOR_MAP, VALID_CLASS_IDS
 
 
 class ScannetVoxelizedDatasetBase(VoxelizedDatasetBase):
-
-    # Voxelization arguments
-    CLIP_BOUND = None
-    TEST_CLIP_BOUND = None
-    VOXEL_SIZE = 0.05
-
-    # Augmentation arguments
-    ROTATION_AUGMENTATION_BOUND = ((-np.pi / 64, np.pi / 64), (-np.pi / 64, np.pi / 64), (-np.pi, np.pi))
-    TRANSLATION_AUGMENTATION_RATIO_BOUND = ((-0.2, 0.2), (-0.2, 0.2), (0, 0))
-    ELASTIC_DISTORT_PARAMS = ((0.2, 0.4), (0.8, 1.6))
-
-    ROTATION_AXIS = 'z'
-    LOCFEAT_IDX = 2
-    NUM_LABELS = 41  # Will be converted to 20 as defined in IGNORE_LABELS.
+    '''
+    Labels properties
+    '''
+    NUM_LABELS_ALL = 41
     IGNORE_LABELS = tuple(set(range(41)) - set(VALID_CLASS_IDS))
-    # IS_FULL_POINTCLOUD_EVAL = True
+    '''
+    Prevoxelization tranformation parameters
+    '''
+    ELASTIC_DISTORT_PARAMS = ((0.2, 0.4), (0.8, 1.6))
+    '''
+    Input transformation parameters
+    '''
+    ROTATION_AXIS = 'z'
+    '''
+    Voxelization parameters
+    '''
+    VOXEL_SIZE = 0.05
+    CLIP_BOUND = None  # Do not clip
+    SCALE_AUGMENTATION_BOUND = (0.9, 1.1)
+    TRANSLATION_AUGMENTATION_RATIO_BOUND = ((-0.2, 0.2), (-0.2, 0.2), (0, 0))
+    ROTATION_AUGMENTATION_BOUND = ((-np.pi / 64, np.pi / 64), (-np.pi / 64, np.pi / 64), (-np.pi, np.pi))
 
     # If trainval.txt does not exist, copy train.txt and add contents from val.txt
-    DATA_PATH_FILE = {'train': 'scannetv2_train.txt', 'val': 'scannetv2_val.txt', 'trainval': 'scannetv2_trainval.txt', 'test': 'scannetv2_test.txt'}
+    DATA_NAME_LIST = {
+        'train': 'scannetv2_train.txt',
+        'val': 'scannetv2_val.txt',
+        'trainval': 'scannetv2_trainval.txt',
+        'test': 'scannetv2_test.txt',
+    }
 
-    def __init__(
-        self,
-        config,
-        prevoxel_transform=None,
-        input_transform=None,
-        target_transform=None,
-        augment_data=True,
-        elastic_distortion=False,
-        cache=False,
-        split='train',
-    ):
+    def __init__(self, config, split='train', **kwargs):
 
-        # Use cropped rooms for train/val
-        if self.VARIANT == 'train':
-            data_root = config.scannet_path
-        else:
-            data_root = config.scannet_test_path
-        if split not in ['train', 'trainval']:
-            self.CLIP_BOUND = self.TEST_CLIP_BOUND
-        data_paths = read_txt(os.path.join('./splits/scannet', self.DATA_PATH_FILE[split]))
-        logging.info('Loading {}: {}'.format(self.__class__.__name__, self.DATA_PATH_FILE[split]))
+        self.data_root = None
+        data_paths = read_txt(os.path.join('./splits/scannet', self.DATA_NAME_LIST[split]))
+
+        logging.info('Loading {}: {}'.format(self.__class__.__name__, self.DATA_NAME_LIST[split]))
         super().__init__(
-            data_paths,
-            data_root=data_root,
-            prevoxel_transform=prevoxel_transform,
-            input_transform=input_transform,
-            target_transform=target_transform,
-            ignore_label=config.ignore_label,
-            return_transformation=config.return_transformation,
-            augment_data=augment_data,
-            elastic_distortion=elastic_distortion,
+            data_root=self.data_root,
+            data_paths=data_paths,
             config=config,
+            return_transformation=config.return_transformation,
+            ignore_mask=config.ignore_label,
+            **kwargs,
         )
 
     def get_output_id(self, iteration):
         return '_'.join(Path(self.data_paths[iteration]).stem.split('_')[:2])
-
-    def _augment_locfeat(self, pointcloud):
-        # Assuming that pointcloud is xyzrgb(...), append location feat.
-        pointcloud = np.hstack((pointcloud[:, :6], 100 * np.expand_dims(pointcloud[:, self.LOCFEAT_IDX], 1), pointcloud[:, 6:]))
-        return pointcloud
 
     def test_pointcloud(self, pred_dir):
         print('Running full pointcloud evaluation.')
@@ -111,11 +97,17 @@ class ScannetVoxelizedDatasetBase(VoxelizedDatasetBase):
 
 
 class ScannetVoxelizedDataset(ScannetVoxelizedDatasetBase, VoxelizedDataset):
-    ...
+
+    def __init__(self, config, **kwargs):
+        self.data_root = config.scannet_path
+        super().__init__(config, **kwargs)
 
 
 class ScannetVoxelizedTestDataset(ScannetVoxelizedDatasetBase, VoxelizedTestDataset):
-    ...
+
+    def __init__(self, config, **kwargs):
+        self.data_root = config.scannet_test_path
+        super().__init__(config, **kwargs)
 
 
 class ScannetVoxelization2cmDataset(ScannetVoxelizedDataset):
