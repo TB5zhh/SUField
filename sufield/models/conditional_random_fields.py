@@ -5,9 +5,9 @@ from MinkowskiEngine import convert_region_type as me_convert_region_type
 from MinkowskiEngine import convert_to_int_tensor
 from torch.autograd import Variable
 
-from models.model import HighDimensionalModel
-from models.modules.common import convert_region_type
-from models.wrapper import Wrapper
+from .model import HighDimensionalModel
+from .modules.common import convert_region_type
+from .wrapper import Wrapper
 
 
 class SparseMM(torch.autograd.Function):

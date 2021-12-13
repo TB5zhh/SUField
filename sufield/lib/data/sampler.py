@@ -20,7 +20,7 @@ class InfSampler(Sampler):
     def reset_permutation(self):
         perm = len(self.data_source)
         if self.shuffle:
-            perm = torch.randpedrm(perm)
+            perm = torch.randperm(perm)
         self._perm = perm.tolist()
 
     def __iter__(self):

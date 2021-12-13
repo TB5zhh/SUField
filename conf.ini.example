@@ -1,7 +1,11 @@
 [DEFAULT]
-ScannetDatasetDir = data/scannetv2
+###### Change this to use different subsection ######
+Section = Debug
+#####################################################
 
-[SpectralClustering]
+Action = train
+
+# Spectral Clustering
 DistanceProportion = 0.1
 TargetFaceNum = 40000
 QualityThreshold = 0.8
@@ -10,3 +14,76 @@ NormalKnnRange = 10
 AutoTemperature = yes
 Temperature = 0.1
 Shots = 20
+
+# Dataset
+ScannetDatasetDir = data/scannetv2
+Dataset = ScannetVoxelizedDataset
+TestDataset = ScannetVoxelizedTestDataset
+TrainSplit = train
+ValidateSplit = val
+NormalizeColor = yes
+
+# Dataloader
+NumWorkers = 4
+TrainBatchSize = 16
+ValidateBatchSize = 8
+TestBatchSize = 8
+LimitNumPointsInTrainBatch = no
+ReturnTransformation = no
+ChromaticTranslationRatio = 0.1
+ChromaticJitter = 0.05
+
+# Model
+Model = Res16UNet34C
+BatchNormMomentum = 0.02
+FeatureDimension = 256
+# ... FIXME
+Conv1KernelSize = 5
+
+# Training TODO check this
+Resume = no
+CheckpointLoadPath = 
+
+Optimizer = SGD
+LearningRate = 0.1
+SGDMomentum = 1e-5
+SGDWeightDecay = 1e-4
+SGDDampening = 0.1
+AdamWeightDecay = 1e-4
+AdamBeta1 = 0.9
+AdamBeta2 = 0.999
+
+Scheduler = PolyLR
+StepLRSize = 100
+StepLRGamma = 0.9
+PolyLRMaxIter = 30000
+PolyLRPolyPower = 0.9
+SquaredLRMaxIter = 20000
+ExpLRStepSize = 10
+ExpLRGamma = 0.99
+
+MaxIteration = 30000
+MaxEpoch = 
+LossAccumulateIter = 1
+DoIterLog = yes
+DoStepLog = yes
+LoggingStep = 1
+SaveCheckpoint = yes
+CheckpointSavePath = checkpoints
+CheckpointStep = 500
+DoValidate = no
+ValidateStep = 10
+DoEmptyCache = no
+EmptyCacheStep = 10
+
+# MISC
+Seed = 42
+IgnoreLabel = 255
+RunName = debug
+LoggingDir = log
+UseWandb = yes
+BarlowTwinsCoef = 3.9e-3
+
+[Debug]
+ScannetDatasetDir = /home/aidrive/tb5zhh/data/200
+RunName = Test2

@@ -1,9 +1,21 @@
+from configparser import SectionProxy as Sec
 import numpy as np
 from plyfile import PlyData, PlyElement
 import logging
 import torch.distributed as dist
 import sys
 import os
+import random
+import torch
+from datetime import datetime
+
+
+def set_seeds(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+
 
 def get_rank():
     if dist.is_initialized():
@@ -11,23 +23,31 @@ def get_rank():
     else:
         return 0
 
+
 def get_world_size():
     if dist.is_initialized():
         return dist.get_world_size()
     else:
         return 1
 
-def setup_logging(config):
-    # TODO fix logging
-    ch = logging.StreamHandler(sys.stdout)
-    if config.distributed_world_size > 1 and config.distributed_rank > 0:
-        logging.getLogger().setLevel(logging.WARN)
+
+def setup_logging(conf: Sec):
+
+    time_str = datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+    ch = logging.StreamHandler()
+
+    os.makedirs(f"{conf['LoggingDir']}/{conf['RunName']}", exist_ok=True)
+    fh = logging.FileHandler(f"{conf['LoggingDir']}/{conf['RunName']}/{time_str}")
+    logging.basicConfig(
+        format='[%(asctime)s][%(funcName)s][%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers=[ch, fh],
+        force=True
+    )
+    if get_rank() > 0:
+        logging.getLogger().setLevel(logging.ERROR)
     else:
         logging.getLogger().setLevel(logging.INFO)
-    logging.basicConfig(
-        format=os.uname()[1].split('.')[0] + ' %(asctime)s %(message)s',
-        datefmt='%m/%d %H:%M:%S',
-        handlers=[ch])
 
 
 def read_plyfile(filepath):

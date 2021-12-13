@@ -143,6 +143,7 @@ class HueSaturationTranslation(object):
 ##############################
 # Coordinate transformations
 ##############################
+# FIXME
 class RandomDropout(object):
 
     def __init__(self, dropout_ratio=0.2, dropout_application_ratio=0.5):
@@ -179,6 +180,7 @@ class RandomHorizontalFlip(object):
             for curr_ax in self.horz_axes:
                 if random.random() < 0.5:
                     coord_max = np.max(coords[:, curr_ax])
+                    # coord_max = coords.max(axis=0)[0][curr_ax]
                     # coord_max = coords[:, curr_ax].max()
                     coords[:, curr_ax] = coord_max - coords[:, curr_ax]
         return coords, feats, labels
@@ -283,8 +285,6 @@ class cfl_collate_fn_factory:
             feats_batch1.append(torch.from_numpy(feats1[batch_id]))
             labels_batch1.append(torch.from_numpy(labels1[batch_id]).int())
 
-            batch_id += 1
-
         # Concatenate all lists
         #coords_batch, feats_batch, labels_batch = ME.utils.sparse_collate(coords_batch, feats_batch, labels_batch)
         coords_batch = torch.cat(coords_batch, 0).int()
@@ -293,7 +293,7 @@ class cfl_collate_fn_factory:
         labels_batch = torch.cat(labels_batch, 0).int()
         feats_batch1 = torch.cat(feats_batch1, 0).float()
         labels_batch1 = torch.cat(labels_batch1, 0).int()
-        return coords_batch, coords1_batch, feats_batch.float(), labels_batch, feats_batch1.float(), labels_batch1
+        return coords_batch, coords1_batch, feats_batch.float(), feats_batch1.float(), labels_batch, labels_batch1
 
 
 class cf_collate_fn_factory:

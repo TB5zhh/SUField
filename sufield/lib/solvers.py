@@ -2,6 +2,7 @@ import logging
 
 from torch.optim import SGD, Adam
 from torch.optim.lr_scheduler import LambdaLR, StepLR
+from configparser import SectionProxy as Sec
 
 
 class LambdaStepLR(LambdaLR):
@@ -42,26 +43,41 @@ class ExpLR(LambdaStepLR):
         super(ExpLR, self).__init__(optimizer, lambda s: gamma**(s / step_size), last_step)
 
 
-def initialize_optimizer(params, config):
-    assert config.optimizer in ['SGD', 'Adagrad', 'Adam', 'RMSProp', 'Rprop', 'SGDLars']
-
-    if config.optimizer == 'SGD':
-        return SGD(params, lr=config.lr, momentum=config.sgd_momentum, dampening=config.sgd_dampening, weight_decay=config.weight_decay)
-    elif config.optimizer == 'Adam':
-        return Adam(params, lr=config.lr, betas=(config.adam_beta1, config.adam_beta2), weight_decay=config.weight_decay)
+def initialize_optimizer(params, conf: Sec):
+    if conf['Optimizer'] == 'SGD':
+        return SGD(
+            params,
+            lr=conf.getfloat('LearningRate'),
+            momentum=conf.getfloat('SGDMomentum'),
+            dampening=conf.getfloat('SGDDampening'),
+            weight_decay=conf.getfloat('SGDWeightDecay'),
+        )
+    elif conf['optimizer'] == 'Adam':
+        return Adam(
+            params,
+            lr=conf.getfloat('LearningRate'),
+            betas=(conf.getfloat('AdamBeta1'), conf.getfloat('AdamBeta2')),
+            weight_decay=conf.getfloat('AdamWeightDecay'),
+        )
     else:
         logging.error('Optimizer type not supported')
         raise ValueError('Optimizer type not supported')
 
 
-def initialize_scheduler(optimizer, config, last_step=-1):
-    if config.scheduler == 'StepLR':
-        return StepLR(optimizer, step_size=config.step_size, gamma=config.step_gamma, last_epoch=last_step)
-    elif config.scheduler == 'PolyLR':
-        return PolyLR(optimizer, max_iter=config.max_iter, power=config.poly_power, last_step=last_step)
-    elif config.scheduler == 'SquaredLR':
-        return SquaredLR(optimizer, max_iter=config.max_iter, last_step=last_step)
-    elif config.scheduler == 'ExpLR':
-        return ExpLR(optimizer, step_size=config.exp_step_size, gamma=config.exp_gamma, last_step=last_step)
+def initialize_scheduler(optimizer, conf: Sec, last_step=-1):
+    if conf['Scheduler'] == 'StepLR':
+        return StepLR(optimizer, step_size=conf.getint('StepLRSize'), gamma=conf.getfloat('StepLRGamma'), last_epoch=last_step)
+    elif conf['Scheduler'] == 'PolyLR':
+        return PolyLR(optimizer, max_iter=conf.getint('PolyLRMaxIter'), power=conf.getfloat('PolyLRPolyPower'), last_step=last_step)
+    elif conf['Scheduler'] == 'SquaredLR':
+        return SquaredLR(optimizer, max_iter=conf.getint('SquaredLRMaxIter'), last_step=last_step)
+    elif conf['Scheduler'] == 'ExpLR':
+        return ExpLR(optimizer, step_size=conf.getint('ExpLRStepSize'), gamma=conf.getfloat('ExpLRGamma'), last_step=last_step)
     else:
         logging.error('Scheduler not supported')
+        raise ValueError('Scheduler not supported')
+
+# TODO criterion
+# def initialize_criterion(conf:Sec):
+#     if conf['Criterion'] == 'CrossEntropyLoss':
+        

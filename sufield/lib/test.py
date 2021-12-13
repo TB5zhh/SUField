@@ -10,7 +10,7 @@ import torch.nn as nn
 from sklearn.metrics import average_precision_score
 from sklearn.preprocessing import label_binarize
 
-from lib.utils import Timer, AverageMeter, precision_at_one, fast_hist, per_class_iu, \
+from sufield.lib.utils import Timer, AverageMeter, precision_at_one, fast_hist, per_class_iu, \
     get_prediction, get_torch_device, save_predictions, visualize_results, \
     permute_pointcloud, save_rotation_pred
 

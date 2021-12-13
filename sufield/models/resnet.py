@@ -2,9 +2,9 @@ import torch.nn as nn
 
 import MinkowskiEngine as ME
 
-from models.model import Model
-from models.modules.common import ConvType, NormType, get_norm, conv, sum_pool
-from models.modules.resnet_block import BasicBlock, Bottleneck
+from .model import Model
+from .modules.common import ConvType, NormType, get_norm, conv, sum_pool
+from .modules.resnet_block import BasicBlock, Bottleneck
 
 
 class ResNetBase(Model):
@@ -36,7 +36,7 @@ class ResNetBase(Model):
         dilations = config.dilations
         bn_momentum = config.bn_momentum
         self.inplanes = self.INIT_DIM
-        self.conv1 = conv(in_channels, self.inplanes, kernel_size=space_n_time_m(config.conv1_kernel_size, 1), stride=1, D=D)
+        self.conv1 = conv(in_channels, self.inplanes, kernel_size=space_n_time_m(config['Conv1KernelSize'], 1), stride=1, D=D)
 
         self.bn1 = get_norm(NormType.BATCH_NORM, self.inplanes, D=self.D, bn_momentum=bn_momentum)
         self.relu = ME.MinkowskiReLU(inplace=True)

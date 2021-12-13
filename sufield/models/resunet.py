@@ -1,6 +1,6 @@
-from models.resnet import ResNetBase, get_norm
-from models.modules.common import ConvType, NormType, conv, conv_tr
-from models.modules.resnet_block import BasicBlock, BasicBlockINBN, Bottleneck
+from sufield.models.resnet import ResNetBase, get_norm
+from sufield.models.modules.common import ConvType, NormType, conv, conv_tr
+from sufield.models.modules.resnet_block import BasicBlock, BasicBlockINBN, Bottleneck
 
 import torch.nn as nn
 
@@ -28,7 +28,7 @@ class MinkUNetBase(ResNetBase):
     def network_initialization(self, in_channels, out_channels, config, D):
         # Setup net_metadata
         dilations = self.DILATIONS
-        bn_momentum = config.bn_momentum
+        bn_momentum = config.getfloat('BatchNormMomentum')
 
         def space_n_time_m(n, m):
             return n if D == 3 else [n, n, n, m]
@@ -40,7 +40,7 @@ class MinkUNetBase(ResNetBase):
         self.inplanes = self.INIT_DIM
         self.conv1p1s1 = conv(in_channels,
                               self.inplanes,
-                              kernel_size=space_n_time_m(config.conv1_kernel_size, 1),
+                              kernel_size=space_n_time_m(config.getint('Conv1KernelSize'), 1),
                               stride=1,
                               dilation=1,
                               conv_type=self.NON_BLOCK_CONV_TYPE,
@@ -214,7 +214,12 @@ class ResUNet34E(ResUNet34):
 class ResUNet34F(ResUNet34):
     INIT_DIM = 32
     PLANES = (32, 64, 128, 256, 128, 64, 32)
+class MinkUNet34(MinkUNetBase):
+    BLOCK = BasicBlock
+    LAYERS = (2, 3, 4, 6, 2, 2, 2, 2)
 
+class MinkUNet34C(MinkUNet34):
+    PLANES = (32, 64, 128, 256, 256, 128, 96, 96)
 
 class MinkUNetHyper(MinkUNetBase):
     BLOCK = None

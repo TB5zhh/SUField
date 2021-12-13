@@ -8,9 +8,9 @@ import numpy as np
 import torch
 import open3d as o3d
 
-from lib.pc_utils import colorize_pointcloud, save_point_cloud
-from lib.distributed_utils import get_world_size, get_rank
-
+from sufield.lib.pc_utils import colorize_pointcloud, save_point_cloud
+from sufield.lib.distributed_utils import get_world_size, get_rank
+from configparser import SectionProxy as Sec
 
 def make_open3d_point_cloud(xyz, color=None):
     pcd = o3d.geometry.PointCloud()
@@ -35,36 +35,45 @@ def load_state_with_same_shape(model, weights):
     logging.info("Loading weights:" + ', '.join(filtered_weights.keys()))
     return filtered_weights
 
-
-def checkpoint(model, optimizer, epoch, iteration, config, best_val=None, best_val_iter=None, postfix=None):
-    mkdir_p(config.log_dir)
-    # only works for rank == 0
-    if get_world_size() > 1 and get_rank() > 0:
+def checkpoint(dict, conf:Sec, suffix='latest'):
+    if get_rank() > 0:
         return
+    name = conf['RunName']
+    os.makedirs(f"{conf['CheckpointSavePath']}/{name}", exist_ok=True)
+    ckpt_path = f"{conf['CheckpointSavePath']}/{name}/{suffix}.pth"
+    torch.save(dict, ckpt_path)
+    logging.info(f"Checkpoint saved to {ckpt_path}")
 
-    mkdir_p('weights')
-    if config.overwrite_weights:
-        if postfix is not None:
-            filename = f"checkpoint_{config.wrapper_type}{config.model}{postfix}.pth"
-        else:
-            filename = f"checkpoint_{config.wrapper_type}{config.model}.pth"
-    else:
-        filename = f"checkpoint_{config.wrapper_type}{config.model}_iter_{iteration}.pth"
-    checkpoint_file = config.log_dir + '/' + filename
 
-    _model = model.module if get_world_size() > 1 else model
-    state = {'iteration': iteration, 'epoch': epoch, 'arch': config.model, 'state_dict': _model.state_dict(), 'optimizer': optimizer.state_dict()}
-    if best_val is not None:
-        state['best_val'] = best_val
-        state['best_val_iter'] = best_val_iter
-    json.dump(vars(config), open(config.log_dir + '/config.json', 'w'), indent=4)
-    torch.save(state, checkpoint_file)
-    logging.info(f"Checkpoint saved to {checkpoint_file}")
-    # Delete symlink if it exists
-    if os.path.exists(f'{config.log_dir}/weights.pth'):
-        os.remove(f'{config.log_dir}/weights.pth')
-    # Create symlink
-    os.system(f'cd {config.log_dir}; ln -s {filename} weights.pth')
+# def checkpoint(model, optimizer, epoch, iteration, config, best_val=None, best_val_iter=None, postfix=None):
+#     mkdir_p(config.log_dir)
+#     # only works for rank == 0
+#     if get_world_size() > 1 and get_rank() > 0:
+#         return
+
+#     mkdir_p('weights')
+#     if config.overwrite_weights:
+#         if postfix is not None:
+#             filename = f"checkpoint_{config.wrapper_type}{config.model}{postfix}.pth"
+#         else:
+#             filename = f"checkpoint_{config.wrapper_type}{config.model}.pth"
+#     else:
+#         filename = f"checkpoint_{config.wrapper_type}{config.model}_iter_{iteration}.pth"
+#     checkpoint_file = config.log_dir + '/' + filename
+
+#     _model = model.module if get_world_size() > 1 else model
+#     state = {'iteration': iteration, 'epoch': epoch, 'arch': config.model, 'state_dict': _model.state_dict(), 'optimizer': optimizer.state_dict()}
+#     if best_val is not None:
+#         state['best_val'] = best_val
+#         state['best_val_iter'] = best_val_iter
+#     json.dump(vars(config), open(config.log_dir + '/config.json', 'w'), indent=4)
+#     torch.save(state, checkpoint_file)
+#     logging.info(f"Checkpoint saved to {checkpoint_file}")
+#     # Delete symlink if it exists
+#     if os.path.exists(f'{config.log_dir}/weights.pth'):
+#         os.remove(f'{config.log_dir}/weights.pth')
+#     # Create symlink
+#     os.system(f'cd {config.log_dir}; ln -s {filename} weights.pth')
 
 
 def precision_at_one(pred, target, ignore_label=255):

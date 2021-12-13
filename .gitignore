@@ -2,3 +2,6 @@
 /data
 .nfs*
 conf.ini
+wandb/
+log/
+checkpoints/

@@ -1,18 +1,21 @@
-from models.resnet import ResNetBase, get_norm
-from models.modules.common import ConvType, NormType, conv, conv_tr
-from models.modules.resnet_block import BasicBlock, Bottleneck
+from .resnet import ResNetBase, get_norm
+from .modules.common import ConvType, NormType, conv, conv_tr
+from .modules.resnet_block import BasicBlock, Bottleneck
 import torch.nn as nn
 from MinkowskiEngine import MinkowskiReLU
 import MinkowskiEngine.MinkowskiOps as me
 import MinkowskiEngine as ME
 
+import inspect
 
+# FIXME should not pass config directly into this module
 class Res16UNetBase(ResNetBase):
     BLOCK = None
     PLANES = (32, 64, 128, 256, 256, 256, 256, 256)
     DILATIONS = (1, 1, 1, 1, 1, 1, 1, 1)
     LAYERS = (2, 2, 2, 2, 2, 2, 2, 2)
     INIT_DIM = 32
+
     OUT_PIXEL_DIST = 1
     NORM_TYPE = NormType.BATCH_NORM
     NON_BLOCK_CONV_TYPE = ConvType.SPATIAL_HYPER_CUBE
@@ -26,7 +29,7 @@ class Res16UNetBase(ResNetBase):
     def network_initialization(self, in_channels, out_channels, config, D):
         # Setup net_metadata
         dilations = self.DILATIONS
-        bn_momentum = config.bn_momentum
+        bn_momentum = config.getfloat('BatchNormMomentum')
 
         def space_n_time_m(n, m):
             return n if D == 3 else [n, n, n, m]
@@ -34,7 +37,7 @@ class Res16UNetBase(ResNetBase):
         if D == 4:
             self.OUT_PIXEL_DIST = space_n_time_m(self.OUT_PIXEL_DIST, 1)
 
-        sizes = [20, 128, 256, config.feature_dim]
+        sizes = [20, 128, 256, config.getint('FeatureDimension')]
         layers = []
         for i in range(len(sizes) - 2):
             layers.append(ME.MinkowskiLinear(sizes[i], sizes[i + 1], bias=False))
@@ -46,7 +49,7 @@ class Res16UNetBase(ResNetBase):
         self.inplanes = self.INIT_DIM
         self.conv0p1s1 = conv(in_channels,
                               self.inplanes,
-                              kernel_size=space_n_time_m(config.conv1_kernel_size, 1),
+                              kernel_size=space_n_time_m(config.getint('Conv1KernelSize'), 1),
                               stride=1,
                               dilation=1,
                               conv_type=self.NON_BLOCK_CONV_TYPE,

@@ -1,41 +1,25 @@
-from os import write
+import logging as L
+from configparser import SectionProxy as Sec
+import copy
+#from MinkowskiEngine import SparseTensor
+import MinkowskiEngine as ME
 import numpy as np
-import logging
-import os.path as osp
-import math
-import scipy.ndimage
+import pointnet2._ext as p2
 import torch
 from torch import nn
 from torch.serialization import default_restore_location
-from tensorboardX import SummaryWriter
 
-from lib.test import test
-from lib.utils import checkpoint, precision_at_one, \
-    Timer, AverageMeter, get_prediction, get_torch_device
-from lib.solvers import initialize_optimizer, initialize_scheduler
-from lib.distributed_utils import all_gather_list, get_world_size, get_rank
-#from MinkowskiEngine import SparseTensor
-import MinkowskiEngine as ME
-import MinkowskiEngine.MinkowskiOps as me
+from sufield.lib.distributed_utils import all_gather_list, get_rank, get_world_size
+from sufield.lib.solvers import initialize_optimizer, initialize_scheduler
+from sufield.lib.test import test
+from sufield.lib.utils import AverageMeter, Timer, checkpoint
 from IPython import embed
-
-import pointnet2._ext as p2
-
-
-def _set_seed(config, step):
-    # Set seed based on args.seed and the update number so that we get
-    # reproducible results when resuming from checkpoints
-    seed = config.seed + step
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
+import wandb
 
 
-def validate(model, val_data_loader, writer, curr_iter, config, transform_data_fn):
+def validate(model, val_data_loader, curr_iter, config, transform_data_fn):
     v_loss, v_score, v_mAP, v_mIoU = test(model, val_data_loader, config, transform_data_fn)
-    writer.add_scalar('validation/mIoU', v_mIoU, curr_iter)
-    writer.add_scalar('validation/loss', v_loss, curr_iter)
-    writer.add_scalar('validation/precision_at_1', v_score, curr_iter)
-
+    # TODO log
     return v_mIoU
 
 
@@ -54,258 +38,212 @@ def off_diagonal(x):
     return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
 
 
-def lossforward(x, y):
-    lambd = 3.9e-3
-    x_mean = torch.mean(x, dim=0)
-    y_mean = torch.mean(y, dim=0)
-    x_std = torch.std(x, dim=0)
-    y_std = torch.std(y, dim=0)
-    x = torch.div(torch.sub(x, x_mean), x_std)
-    y = torch.div(torch.sub(y, y_mean), y_std)
-    up = torch.mm(x.t(), y)
-    down1 = x.pow(2).sum(0, keepdim=True).sqrt()
-    down2 = y.pow(2).sum(0, keepdim=True).sqrt()
-    down = torch.mm(down1.t(), down2)
-    cov = up / down
-    #covnp = cov.cpu().detach().numpy()
-    #np.save('/home/aidrive1/workspace/luoly/dataset/Min_scan/bt_train/cov/cov_%02d.npy' % (i), covnp)
-    ret = cov - torch.eye(cov.shape[0]).cuda()
-    on_diag = torch.diagonal(ret).add_(-1).pow_(2).sum().mul(1 / 512)
-    off_diag = off_diagonal(ret).pow_(2).sum().mul(1 / 512)
-    loss = on_diag + lambd * off_diag
-    return loss
+class BarlowTwinsLoss(nn.Module):
+
+    def __init__(self, coef=3.9e-3) -> None:
+        super().__init__()
+        self.coef = coef
+
+    def forward(self, x, y):
+        x = (x - x.mean()) / x.std()
+        y = (y - y.mean()) / y.std()
+        cov = x.t() @ y
+
+        x_norm = x.pow(2).sum(0, keepdim=True).sqrt()
+        y_norm = y.pow(2).sum(0, keepdim=True).sqrt()
+
+        cov = cov / (x_norm.t() @ y_norm)
+        ret = (cov - torch.eye(cov.shape[0], device=cov.device)).pow(2)
+        coef = self.coef * torch.ones_like(cov, device=cov.device) + (1 - self.coef) * torch.eye(cov.shape[0], device=cov.device)
+        ret = ret * coef
+
+        loss = ret.sum()
+        return loss
 
 
-def train(model, data_loader, val_data_loader, config, transform_data_fn=None):
-    device = config.device_id
+def train(model, train_dataloader, conf: Sec):
+    device = f'cuda:{get_rank()}'
     distributed = get_world_size() > 1
-    #device = get_torch_device(config.is_cuda)
-    # Set up the train flag for batch normalization
+
     model.train()
 
-    # Configuration
-    if not distributed or get_rank() == 0:
-        writer = SummaryWriter(log_dir=config.log_dir)
+    #################### Recorders #####################
     data_timer, iter_timer = Timer(), Timer()
     fw_timer, bw_timer, ddp_timer = Timer(), Timer(), Timer()
+    step_timer = Timer()
 
-    data_time_avg, iter_time_avg = AverageMeter(), AverageMeter()
-    fw_time_avg, bw_time_avg, ddp_time_avg = AverageMeter(), AverageMeter(), AverageMeter()
-
-    losses, scores = AverageMeter(), AverageMeter()
-
-    optimizer = initialize_optimizer(model.parameters(), config)
-    scheduler = initialize_scheduler(optimizer, config)
-    criterion = nn.CrossEntropyLoss(ignore_index=config.ignore_label)
-
-    # writer = SummaryWriter(log_dir=config.log_dir)
+    ####################################################
 
     # Train the network
-    logging.info('===> Start training on {} GPUs, batch-size={}'.format(get_world_size(), config.batch_size * get_world_size()))
-    best_val_miou, best_val_iter, curr_iter, epoch, is_training = 0, 0, 1, 1, True
+    L.info(f"Start training on {get_world_size()} GPUs")
+    L.info(f"Batch size: {conf.getint('TrainBatchSize') * get_world_size() *conf.getint('LossAccumulateIter')}")
 
-    if config.resume:
-        checkpoint_fn = config.resume + '/weights.pth'
-        if osp.isfile(checkpoint_fn):
-            logging.info("=> loading checkpoint '{}'".format(checkpoint_fn))
-            state = torch.load(checkpoint_fn, map_location=lambda s, l: default_restore_location(s, 'cpu'))
-            curr_iter = state['iteration'] + 1
-            epoch = state['epoch']
-            model.load_state_dict(state['state_dict'])
-            if config.resume_optimizer:
-                scheduler = initialize_scheduler(optimizer, config, last_step=curr_iter)
-                optimizer.load_state_dict(state['optimizer'])
-            if 'best_val' in state:
-                best_val_miou = state['best_val']
-                best_val_iter = state['best_val_iter']
-            logging.info("=> loaded checkpoint '{}' (epoch {})".format(checkpoint_fn, state['epoch']))
-        else:
-            raise ValueError("=> no checkpoint found at '{}'".format(checkpoint_fn))
+    optimizer = initialize_optimizer(model.parameters(), conf)
+    scheduler = initialize_scheduler(optimizer, conf)
+    # criterion = nn.CrossEntropyLoss(ignore_index=conf.getint('IgnoreLabel'))
+    criterion = BarlowTwinsLoss(conf.getfloat('BarlowTwinsCoef'))
 
-    data_iter = data_loader.__iter__()
-    while is_training:
-        for iteration in range(len(data_loader) // config.iter_size):
-            optimizer.zero_grad()
-            data_time, batch_loss, batch_score = 0, 0, 0
-            iter_timer.tic()
+    if conf.getboolean('Resume'):
+        ckpt_path = f"{conf['CheckpointLoadPath']}/{conf['RunName']}/latest.pth"
+        state = torch.load(ckpt_path)
+        optimizer.load_state_dict(state['optimizer'])
+        scheduler.load_state_dict(state['scheduler'])
 
-            # set random seed for every iteration for trackability
-            _set_seed(config, curr_iter)
+        loss_step, loss_average = state['loss_step'], state['loss_average']
+        global_iter = state['global_iter']
+        global_step = state['global_step']
+    else:
+        loss_step, loss_average = AverageMeter(), AverageMeter()
+        global_iter = 0
+        global_step = 0
 
-            for sub_iter in range(config.iter_size):
-                # Get training data
-                data_timer.tic()
-                coords1, coords2, input1, target1, input2, target2 = data_iter.next()
+    validate_flag = False
+    data_iter = train_dataloader.__iter__()
+    epoch_length = len(train_dataloader)
 
-                # For some networks, making the network invariant to even, odd coords is important. Random translation
-                coords1[:, 1:] += (torch.rand(3) * 100).type_as(coords1)
-                coords2[:, 1:] += (torch.rand(3) * 100).type_as(coords2)
+    step_timer.tic()
+    while True:
+        iter_timer.tic()
+        if validate_flag:
+            # Validate
+            validate_flag = False
+            # TODO validate
+            continue
 
-                # Preprocess input
-                color1 = input1[:, :3].int()
-                color2 = input2[:, :3].int()
-                if config.normalize_color:
-                    input1[:, :3] = input1[:, :3] / 255. - 0.5
-                    input2[:, :3] = input2[:, :3] / 255. - 0.5
-                #sinput1 = ME.SparseTensor(input1.to(device), coords1.int().to(device))
-                #sinput2 = ME.SparseTensor(input2.to(device), coords2.int().to(device))
+        global_iter += 1
 
-                tfield1 = ME.TensorField(coordinates=coords1.int().to(device),
-                                         features=input1.to(device),
-                                         quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
-                tfield2 = ME.TensorField(coordinates=coords2.int().to(device),
-                                         features=input2.to(device),
-                                         quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
+        ######### Data Processing Start
+        data_timer.tic()
+        coords1, coords2, input1, input2, target1, target2 = data_iter.next()
 
-                # print(len(tfield1))  # 227742
-                # print(len(tfield2))
-                sinput1 = tfield1.sparse()  # 161890 quantization results in fewer voxels
-                sinput2 = tfield2.sparse()
+        # TODO check this
+        # For some networks, making the network invariant to even, odd coords is important. Random translation
+        coords1[:, 1:] += (torch.rand(3) * 100).type_as(coords1)
+        coords2[:, 1:] += (torch.rand(3) * 100).type_as(coords2)
 
-                #sinput = ME.SparseTensor(input.to(device), coords.to(device))
-                #sinput = ME.SparseTensor(input,coords).to(device)
-                data_time += data_timer.toc(False)
+        # Preprocess input
+        if conf.getboolean('NormalizeColor'):
+            input1[:, :3] = input1[:, :3] / 255. - 0.5
+            input2[:, :3] = input2[:, :3] / 255. - 0.5
+        tfield1 = ME.TensorField(coordinates=coords1.int().to(device),
+                                 features=input1.to(device),
+                                 quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
+        tfield2 = ME.TensorField(coordinates=coords1.int().to(device),
+                                 features=input1.to(device),
+                                 quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE)
+        sinput1 = tfield1.sparse()
+        sinput2 = tfield2.sparse()
 
-                # Feed forward
-                fw_timer.tic()
+        data_timer.toc(False)
+        ######### Data Processing End
 
-                # inputs = (sinput,) if config.wrapper_type == 'None' else (
-                # sinput, coords, color)
-                inputs1 = (sinput1,) if config.wrapper_type == 'None' else (sinput1, coords1, color1)
-                inputs2 = (sinput2,) if config.wrapper_type == 'None' else (sinput2, coords2, color2)
-                # model.initialize_coords(*init_args)
-                #soutput = model(*inputs)
-                soutput1 = model(*inputs1)
-                soutput2 = model(*inputs2)
+        ######### Feed Forward Start
+        fw_timer.tic()
+        inputs1 = (sinput1,)
+        inputs2 = (sinput2,)
+        soutput1 = model(*inputs1)
+        soutput2 = model(*inputs2)
+        ofield1 = soutput1.slice(tfield1)
+        ofield2 = soutput2.slice(tfield2)
 
-                # print(len(soutput1))  # 161890 Output with the same resolution
-                # print(len(soutput2))
-                ofield1 = soutput1.slice(tfield1)
-                ofield2 = soutput2.slice(tfield2)
-                #assert isinstance(ofield1, ME.TensorField)
-                # len(ofield1) == len(coords1)  # recovers the original ordering and length
-                #assert isinstance(ofield1.F, torch.Tensor)
-                #assert isinstance(ofield2, ME.TensorField)
-                # len(ofield2) == len(coords2)  # recovers the original ordering and length
-                #assert isinstance(ofield2.F, torch.Tensor)
+        target1 = target1.long().to(device)
+        target2 = target2.long().to(device)
 
-                # The output of the network is not sorted
-                target1 = target1.long().to(device)
-                target2 = target2.long().to(device)
+        pindex1 = p2.furthest_point_sampling(ofield1.C[:, 1:].reshape((1, ofield1.C.shape[0], 3)).contiguous(), 1024).reshape(1024).long()
+        pindex2 = p2.furthest_point_sampling(ofield2.C[:, 1:].reshape((1, ofield2.C.shape[0], 3)).contiguous(), 1024).reshape(1024).long()
+        list1 = torch.index_select(ofield1.F, 0, pindex1)
+        list2 = torch.index_select(ofield2.F, 0, pindex1)
 
-                pindex = torch.randint(0, (ofield1.F).shape[0], (1024,)).to(device)
-                # logging.warn(ofield1.C.shape)
-                pindex1 = p2.furthest_point_sampling(ofield1.C[:, 1:].reshape((1, ofield1.C.shape[0], 3)).contiguous(), 1024).reshape(1024).long()
-                pindex2 = p2.furthest_point_sampling(ofield2.C[:, 1:].reshape((1, ofield2.C.shape[0], 3)).contiguous(), 1024).reshape(1024).long()
+        # loss_iter = criterion(list1, list2)
+        loss_iter = criterion(list1, list2)
+        loss_iter /= conf.getint('LossAccumulateIter')
 
-                # embed()
-                # logging.warn(pindex1.shape)
-                # print(pindex.shape)
-                # print("=====")
-                #list1 = soutput1.F[ps1]
-                list1 = torch.index_select(ofield1.F, 0, pindex1)
-                list2 = torch.index_select(ofield2.F, 0, pindex1)
-                #list2 = torch.index_select(soutput2.F, 0, pshape)
-                #loss = criterion(soutput.F, target.long())
-                #loss = lossforward(soutput1.F,soutput2.F)
-                loss = lossforward(list1, list2)
+        # TODO get prediction
+        # TODO precision
+        fw_timer.toc(False)
+        ######### Feed Forward End
 
-                # Compute and accumulate gradient
-                loss /= config.iter_size
+        ######### Loss Backward Start
+        bw_timer.tic()
+        loss_iter.backward()
+        optimizer.zero_grad()
+        bw_timer.toc(False)
+        ######### Loss Backward End
 
-                pred = get_prediction(data_loader.dataset, soutput1.F, target1)
-                score = precision_at_one(pred, target1)
+        ######### Distributed Sync Start
+        ddp_timer.tic()
+        if distributed:
+            loss_iter = np.mean(all_gather_list(loss_iter))
+        loss_step.update(loss_iter.item())
+        loss_average.update(loss_iter.item())
 
-                fw_timer.toc(False)
-                bw_timer.tic()
+        ddp_timer.toc(False)
+        ######### Distributed Sync End
 
-                loss.backward()
-                bw_timer.toc(False)
+        iter_timer.toc(False)
 
-                logging_output = {'loss': loss.item(), 'score': score / config.iter_size}
+        if conf.getboolean('DoIterLog'):
+            L.info(f"Iter #{global_iter}: " + f"LR: {scheduler.get_last_lr()[-1]:.3f}, " + f"Iter Loss: {loss_iter.item():.4f}, " + f"Iter Time: {iter_timer.diff:.2f}, " +
+                   f"Data Time: {data_timer.diff:.2f}, " + f"Feed Forward Time: {fw_timer.diff:.2f}, " + f"Backward Time: {bw_timer.diff:.2f}, " +
+                   f"DDP Time: {ddp_timer.diff:.2f}")
 
-                ddp_timer.tic()
-                if distributed:
-                    logging_output = all_gather_list(logging_output)
-                    logging_output = {w: np.mean([a[w] for a in logging_output]) for w in logging_output[0]}
-
-                batch_loss += logging_output['loss']
-                batch_score += logging_output['score']
-                ddp_timer.toc(False)
-
-            # Update number of steps
+        if global_iter % conf.getint('LossAccumulateIter') == 0:
+            global_step += 1
             optimizer.step()
             scheduler.step()
+            step_timer.toc(False)
+            if conf.getboolean('DoStepLog') and global_step % conf.getint('LoggingStep') == 0:
+                L.info(f"\tStep #{global_step}: " + f"Step Loss: {loss_step.avg:.4f}, " + f"Avg Loss: {loss_average.avg:.4f}" + f"Step Time: {step_timer.diff:.2f}")
+            if conf.getboolean('SaveCheckpoint') and global_step % conf.getint('CheckpointStep') == 0:
+                state_dict = {
+                    'state_dict': model.module.state_dict() if get_world_size() > 1 else model.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'scheduler': scheduler.state_dict(),
+                    'global_step': global_step,
+                    'global_iter': global_iter,
+                    'epoch': global_iter // epoch_length,
+                    'loss_step': loss_step,
+                    'loss_average': loss_average,
+                    'conf': conf,
+                    'step_size': get_world_size() * conf.getint('LossAccumulateIter') * conf.getint('TrainBatchSize'),
+                }
+                checkpoint(state_dict, conf, 'latest')
 
-            data_time_avg.update(data_time)
-            iter_time_avg.update(iter_timer.toc(False))
-            fw_time_avg.update(fw_timer.diff)
-            bw_time_avg.update(bw_timer.diff)
-            ddp_time_avg.update(ddp_timer.diff)
-
-            losses.update(batch_loss, target1.size(0))
-            scores.update(batch_score, target1.size(0))
-
-            # for name, parms in model.named_parameters():
-            #    print('-->name:', name, '-->grad_requirs:', parms.requires_grad, '--weight', torch.mean(parms.data), ' -->grad_value:', torch.mean(parms.grad))
-
-            if curr_iter >= config.max_iter:
-                is_training = False
-                break
-
-            if curr_iter % config.stat_freq == 0 or curr_iter == 1:
-                lrs = ', '.join(['{:.3e}'.format(x) for x in scheduler.get_lr()])
-                debug_str = "===> Epoch[{}]({}/{}): Loss {:.4f}\tLR: {}\t".format(epoch, curr_iter, len(data_loader) // config.iter_size, losses.avg, lrs)
-                debug_str += "Score {:.3f}\tData time: {:.4f}, Forward time: {:.4f}, Backward time: {:.4f}, DDP time: {:.4f}, Total iter time: {:.4f}".format(
-                    scores.avg, data_time_avg.avg, fw_time_avg.avg, bw_time_avg.avg, ddp_time_avg.avg, iter_time_avg.avg)
-                logging.info(debug_str)
-                # Reset timers
-                data_time_avg.reset()
-                iter_time_avg.reset()
-                # Write logs
-                if not distributed or get_rank() == 0:
-                    writer.add_scalar('training/loss', losses.avg, curr_iter)
-                    writer.add_scalar('training/precision_at_1', scores.avg, curr_iter)
-                    writer.add_scalar('training/learning_rate', scheduler.get_lr()[0], curr_iter)
-                losses.reset()
-                scores.reset()
-
-            # Save current status, save before val to prevent occational mem overflow
-            if curr_iter % config.save_freq == 0:
-                checkpoint(model, optimizer, epoch, curr_iter, config, best_val_miou, best_val_iter)
-
-            # Validation
-            if curr_iter % config.val_freq == 0 and (not distributed or get_rank() == 0):
-                val_miou = validate(model, val_data_loader, writer, curr_iter, config, transform_data_fn)
-                if val_miou > best_val_miou:
-                    best_val_miou = val_miou
-                    best_val_iter = curr_iter
-                    checkpoint(model, optimizer, epoch, curr_iter, config, best_val_miou, best_val_iter, "best_val")
-                logging.info("Current best mIoU: {:.3f} at iter {}".format(best_val_miou, best_val_iter))
-
-                # Recover back
-                model.train()
-
-            if curr_iter % config.empty_cache_freq == 0:
-                # Clear cache
+            if conf.getboolean('DoValidate') and global_step % conf.getint('ValidateStep') == 0:
+                validate_flag = True
+            if conf.getboolean('DoEmptyCache') and conf.getint('EmptyCacheStep'):
                 torch.cuda.empty_cache()
 
-            # End of iteration
-            curr_iter += 1
+            if conf.getboolean('UseWandb') and get_rank() == 0:
+                wandb.log({
+                    'global_step': global_step,
+                    'global_iter': global_iter,
+                    'epoch': global_iter // epoch_length,
+                    'loss_step': loss_step.avg,
+                    'loss_average': loss_average.avg,
+                    'learning_rate': scheduler.get_last_lr()[-1]
+                })
 
-        epoch += 1
+            loss_step.reset()
 
-    # Explicit memory cleanup
-    if hasattr(data_iter, 'cleanup'):
-        data_iter.cleanup()
+        if conf['MaxIteration'] != '' and global_iter > conf.getint('MaxIteration'):
+            L.info(f"Training stopped due to MaxIteration:{conf.getint('MaxIteration')} limit")
+            break
+        if conf['MaxEpoch'] != '' and global_iter > epoch_length * conf.getint('MaxEpoch'):
+            L.info(f"Training stopped due to MaxEpoch:{conf.getint('MaxEpoch')} limit")
+            break
 
     # Save the final model
-    checkpoint(model, optimizer, epoch, curr_iter, config, best_val_miou, best_val_iter)
-    if not distributed or get_rank() == 0:
-        val_miou = validate(model, val_data_loader, writer, curr_iter, config, transform_data_fn)
-        if val_miou > best_val_miou:
-            best_val_miou = val_miou
-            best_val_iter = curr_iter
-            checkpoint(model, optimizer, epoch, curr_iter, config, best_val_miou, best_val_iter, "best_val")
-        writer.close()
-    logging.info("Current best mIoU: {:.3f} at iter {}".format(best_val_miou, best_val_iter))
+    state_dict = {
+        'state_dict': model.module.state_dict() if get_world_size() > 1 else model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'scheduler': scheduler.state_dict(),
+        'global_step': global_step,
+        'global_iter': global_iter,
+        'epoch': global_iter // epoch_length,
+        'loss_step': loss_step,
+        'loss_average': loss_average,
+        'conf': conf,
+        'step_size': get_world_size() * conf.getint('LossAccumulateIter') * conf.getint('TrainBatchSize'),
+    }
+    checkpoint(state_dict, conf, 'last')

@@ -4,9 +4,9 @@ import sys
 from pathlib import Path
 
 import numpy as np
-from lib.data.dataset import VoxelizedDataset, VoxelizedDatasetBase, VoxelizedTestDataset
-from lib.pc_utils import read_plyfile, save_point_cloud
-from lib.utils import fast_hist, per_class_iu, read_txt
+from sufield.lib.data.dataset import VoxelizedDataset, VoxelizedDatasetBase, VoxelizedTestDataset
+from sufield.lib.pc_utils import read_plyfile, save_point_cloud
+from sufield.lib.utils import fast_hist, per_class_iu, read_txt
 from scipy import spatial
 from sufield.config import CLASS_LABELS, SCANNET_COLOR_MAP, VALID_CLASS_IDS
 
@@ -44,16 +44,13 @@ class ScannetVoxelizedDatasetBase(VoxelizedDatasetBase):
 
     def __init__(self, config, split='train', **kwargs):
 
-        self.data_root = None
-        data_paths = read_txt(os.path.join('./splits/scannet', self.DATA_NAME_LIST[split]))
-
         logging.info('Loading {}: {}'.format(self.__class__.__name__, self.DATA_NAME_LIST[split]))
         super().__init__(
             data_root=self.data_root,
-            data_paths=data_paths,
+            data_paths=self.data_paths,
             config=config,
-            return_transformation=config.return_transformation,
-            ignore_mask=config.ignore_label,
+            return_transformation=config.getboolean('ReturnTranformation'),
+            ignore_mask=config.getint('IgnoreLabel'),
             **kwargs,
         )
 
@@ -102,14 +99,16 @@ class ScannetVoxelizedDatasetBase(VoxelizedDatasetBase):
 class ScannetVoxelizedDataset(ScannetVoxelizedDatasetBase, VoxelizedDataset):
 
     def __init__(self, config, **kwargs):
-        self.data_root = config.scannet_path
+        self.data_root = f"{config['ScannetDatasetDir']}/train"
+        self.data_paths = os.listdir(self.data_root) if os.path.isdir(self.data_root) else []
         super().__init__(config, **kwargs)
 
 
 class ScannetVoxelizedTestDataset(ScannetVoxelizedDatasetBase, VoxelizedTestDataset):
 
     def __init__(self, config, **kwargs):
-        self.data_root = config.scannet_test_path
+        self.data_root = f"{config['ScannetDatasetDir']}/test"
+        self.data_paths = os.listdir(self.data_root) if os.path.isdir(self.data_root) else []
         super().__init__(config, **kwargs)
 
 

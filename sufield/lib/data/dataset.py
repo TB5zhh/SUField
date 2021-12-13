@@ -1,3 +1,4 @@
+from configparser import SectionProxy
 import math
 from abc import ABC
 from pathlib import Path
@@ -139,7 +140,7 @@ class VoxelizedDatasetBase(DictDataset, ABC):
                 n_used += 1
         label_map[self.ignore_mask] = self.ignore_mask
         self.label_map = label_map
-        self.NUM_LABELS -= len(self.IGNORE_LABELS)
+        self.NUM_LABELS = self.NUM_LABELS_ALL - len(self.IGNORE_LABELS)
 
     def __getitem__(self, index):
         raise NotImplementedError
@@ -182,7 +183,6 @@ class VoxelizedTestDataset(VoxelizedDatasetBase):
             coords, feats, labels = self.prevoxel_transform(coords, feats, labels)
 
         coords, feats, labels, transformation = self.voxelizer.voxelize(coords, feats, labels, center=center)
-        coords = coords.numpy()
 
         if self.input_transform is not None:
             coords, feats, labels = self.input_transform(coords, feats, labels)
@@ -230,11 +230,10 @@ class VoxelizedDataset(VoxelizedDatasetBase):
             coords1, feats1, labels1 = self.prevoxel_transform(coords, feats, labels)
             coords2, feats2, labels2 = self.prevoxel_transform(coords, feats, labels)
 
-        coords1 = (self.Transform(coords1)).astype(np.int)
-        coords2 = (self.Transform(coords2)).astype(np.int)
+        # coords1 = (self.Transform(coords1)).astype(np.int)
+        # coords2 = (self.Transform(coords2)).astype(np.int)
 
-        coords1, feats1, labels1, coords2, feats2, labels2 = self.voxelizer.voxelize(coords1, coords2, feats1, labels1, feats2, labels2, center=center)
-
+        coords1, feats1, labels1, coords2, feats2, labels2, _ = self.voxelizer.voxelize(coords1, coords2, feats1, labels1, feats2, labels2, center=center)
         # map labels not used for evaluation to ignore_label
         if self.input_transform is not None:
             coords1, feats1, labels1 = self.input_transform(coords1, feats1, labels1)
@@ -253,12 +252,23 @@ class VoxelizedDataset(VoxelizedDatasetBase):
         return tuple(return_args)
 
 
-def initialize_data_loader(DatasetClass, config, split, num_workers, shuffle, repeat, augment_data, batch_size, limit_numpoints, input_transform=[]):
+def initialize_data_loader(
+    DatasetClass,
+    conf : SectionProxy,
+    split,
+    num_workers,
+    shuffle,
+    repeat,
+    augment_data,
+    batch_size,
+    limit_numpoints,
+    input_transform=[],
+):
     """
     prevoxel_transforms: tranformation applied before voxelization
     """
     ###### Collate functions ######
-    if config.return_transformation:
+    if conf.getboolean('ReturnTransformation'):
         collate_fn = t.cflt_collate_fn_factory(limit_numpoints)
     else:
         if augment_data:
@@ -274,8 +284,8 @@ def initialize_data_loader(DatasetClass, config, split, num_workers, shuffle, re
             t.RandomDropout(0.2),
             t.RandomHorizontalFlip(DatasetClass.ROTATION_AXIS, DatasetClass.IS_TEMPORAL),
             t.ChromaticAutoContrast(),
-            t.ChromaticTranslation(config.data_aug_color_trans_ratio),
-            t.ChromaticJitter(config.data_aug_color_jitter_std),
+            t.ChromaticTranslation(conf.getfloat('ChromaticTranslationRatio')),
+            t.ChromaticJitter(conf.getfloat('ChromaticJitter')),
             # t.HueSaturationTranslation(config.data_aug_hue_max, config.data_aug_saturation_max),
         ])
     else:
@@ -284,7 +294,7 @@ def initialize_data_loader(DatasetClass, config, split, num_workers, shuffle, re
 
     ###### Construct dataset and dataloader ######
     dataset = DatasetClass(
-        config,
+        conf,
         prevoxel_transform=prevoxel_transforms,
         input_transform=input_transforms,
         augment_data=augment_data,

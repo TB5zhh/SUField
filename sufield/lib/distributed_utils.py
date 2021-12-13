@@ -107,13 +107,15 @@ def suppress_output(is_master):
 
 
 def get_rank():
-    return dist.get_rank()
-
+    if dist.is_initialized():
+        return dist.get_rank()
+    else:
+        return 0
 
 def get_world_size():
-    try:
+    if dist.is_initialized():
         return dist.get_world_size()
-    except AssertionError:
+    else:
         return 1
 
 

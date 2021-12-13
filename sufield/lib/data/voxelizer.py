@@ -18,7 +18,7 @@ class VoxelizerBase():
                  scale_augmentation_bound=None,
                  rotation_augmentation_bound=None,
                  translation_augmentation_ratio_bound=None,
-                 ignore_label=255):
+                 ignore_mask=255):
         """
         Args:
         - voxel_size: side length of a voxel, in meters?
@@ -28,11 +28,11 @@ class VoxelizerBase():
         - rotation_augmentation_bound: None or ((np.pi / 6, np.pi / 6), None, None) for 3 axis. 
             Use random order of x, y, z to prevent bias.    
         - translation_augmentation_bound: ((-5, 5), (0, 0), (-10, 10))  
-        - ignore_label: label assigned for ignore (not a training label).   
+        - ignore_mask: label assigned for ignore (not a training label).   
         """
         self.voxel_size = voxel_size
         self.clip_bound = clip_bound
-        self.ignore_label = ignore_label
+        self.ignore_mask = ignore_mask
 
         # Augmentation
         self.use_augmentation = use_augmentation
@@ -169,15 +169,11 @@ class Voxelizer(VoxelizerBase):
         coords1_aug, feats1_aug, labels1_aug, indices_map = ME.utils.sparse_quantize(coords1_aug,
                                                                                      feats1_aug,
                                                                                      labels=labels1_aug,
-                                                                                     ignore_label=self.ignore_label,
+                                                                                     ignore_label=self.ignore_mask,
                                                                                      return_index=True)
         coords2_aug, feats2_aug, labels2_aug = coords2_aug[indices_map], feats2_aug[indices_map], labels2_aug[indices_map]
-
+        coords1_aug = coords1_aug.numpy()
         return coords1_aug, feats1_aug, labels1_aug, coords2_aug, feats2_aug, labels2_aug, (rigid_transformation1, rigid_transformation2, indices_map)
-        # try:
-        #     coords1_aug = coords1_aug.numpy()
-        # except:
-        #     pass
 
 
 class TestVoxelizer(VoxelizerBase):
@@ -188,7 +184,7 @@ class TestVoxelizer(VoxelizerBase):
         coords_aug, feats_aug, labels_aug, indices = ME.utils.sparse_quantize(coords_aug,
                                                                               feats_aug,
                                                                               labels=labels_aug,
-                                                                              ignore_label=self.ignore_label,
+                                                                              ignore_mask=self.ignore_mask,
                                                                               return_index=True)
-
+        coords_aug = coords_aug.numpy()
         return coords_aug, feats_aug, labels_aug, (rigid_transformation, indices)
