@@ -16,13 +16,22 @@ from sufield.lib.train import train
 from sufield.models import load_model
 from sufield.utils import set_seeds, setup_logging
 import wandb
-
+import sys
 
 def main():
     conf = configparser.ConfigParser()
     conf.read('conf.ini')
-    print(f"Using section {conf['DEFAULT']['Section']} in configuration file")
-    conf = conf[conf['DEFAULT']['Section']]
+    if len(sys.argv) == 1:
+        print(f"Using section DEFAULT in configuration file")
+        conf = conf['DEFAULT']
+    elif len(sys.argv) == 2:
+        print(f"Using manually selected section {sys.argv[1]} in configuration file")
+        conf = conf[sys.argv[1]]
+    else:
+        # TODO
+        print(sys.argv)
+        raise ValueError('TODO')
+
     num_devices = torch.cuda.device_count()
     conf['RT_world_size'] = str(num_devices)
 

@@ -37,7 +37,7 @@ def setup_logging(conf: Sec):
     ch = logging.StreamHandler()
 
     os.makedirs(f"{conf['LoggingDir']}/{conf['RunName']}", exist_ok=True)
-    fh = logging.FileHandler(f"{conf['LoggingDir']}/{conf['RunName']}/{time_str}")
+    fh = logging.FileHandler(f"{conf['LoggingDir']}/{conf['RunName']}/{time_str}.log")
     logging.basicConfig(
         format='[%(asctime)s][%(funcName)s][%(levelname)s] %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
