@@ -1,30 +1,33 @@
 # %%
 import argparse
-import time
-import sys
-from functools import wraps
-from multiprocessing import Pool, shared_memory
+import configparser
 import os
 import sys
+import time
 from datetime import datetime
-from typing import Tuple
+from functools import wraps
+from multiprocessing import Pool, shared_memory
+from multiprocessing.managers import SharedMemoryManager
+from typing import *
 
 import numpy as np
 import open3d as o3d
 import potpourri3d as pp3d
-from potpourri3d import point_cloud
 import pymeshlab
 import torch
 from IPython import embed
+from pathos.pools import ProcessPool
 from plyfile import PlyData, PlyElement
+from potpourri3d import point_cloud
 from sklearnex import patch_sklearn
 from tqdm import tqdm
-import configparser
-from pathos.pools import ProcessPool
 
 patch_sklearn()
 from sklearn.cluster import KMeans
-from sufield.config import CONF_FILE
+
+CONF_FILE = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/conf.ini'
+DATA_BASE_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/data/scannetv2/scans'
+SAMPLE_IDS_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SpecCluster/tbw/indices'
 """
 Terminology:
 ply_name (scan_id): scene0000_00
@@ -56,10 +59,47 @@ def add_fields_online(plydata: PlyData, fields=[
     return p
 
 
+# %%
+from contextlib import contextmanager
+
+
+@contextmanager
+def count_time(name=None):
+    print(f"Process {(name+' ') if name is not None else ''}start")
+    start = datetime.now()
+    yield
+    end = datetime.now()
+    print(f"Time spent: {(end - start).seconds}s {(end-start).microseconds} ms")
+
+
+def timer(fn):
+
+    def inner():
+        start = datetime.now()
+        fn()
+        end = datetime.now()
+        print(f"Time spent: {(end - start).seconds}s {(end-start).microseconds} ms")
+
+    return inner
+
+
 def plydata_to_arrays(plydata: PlyData) -> Tuple[np.ndarray, np.ndarray]:
     vertices = np.vstack((plydata['vertex']['x'], plydata['vertex']['y'], plydata['vertex']['z'])).T
     faces = np.stack(plydata['face']['vertex_indices'])
     return vertices, faces
+
+
+def setup_mapping(ply_origin: PlyData, ply_down_sampled: PlyData) -> Tuple[Dict, Dict]:
+    full_coords, _ = plydata_to_arrays(ply_origin)
+    sampled_coords, _ = plydata_to_arrays(ply_down_sampled)
+    full_coords = torch.tensor(full_coords).cuda()
+    sampled_coords = torch.tensor(sampled_coords).cuda()
+    full2sampled = None
+    full2sampled = torch.tensor([((sampled_coords - coord)**2).sum(dim=1).min(dim=0)[1] for coord in full_coords
+                                ])  # use index in full mesh to find index of the closest in sampled mesh
+    sampled2full = torch.tensor([((full_coords - coord)**2).sum(dim=1).min(dim=0)[1] for coord in sampled_coords
+                                ])  # use index in smapled mesh to find index of the closest in full mesh
+    return full2sampled, sampled2full
 
 
 # %%
@@ -71,14 +111,29 @@ class SpecClusterPipeline():
         self.scan_id = scan_id
         self.conf = configparser.ConfigParser()
         self.conf.read(CONF_FILE)
-        self.conf = self.conf['Default']
+        self.conf = self.conf['Debug']
+        self._load_sample_ids()
+        self._load_plydata()
 
-    def downsample(self, plydata: PlyData) -> PlyData:
+    def _load_sample_ids(self):
+        f20 = torch.load(f"{SAMPLE_IDS_DIR}/20.dict")[self.scan_id]
+        f50 = torch.load(f"{SAMPLE_IDS_DIR}/50.dict")[self.scan_id]
+        f100 = torch.load(f"{SAMPLE_IDS_DIR}/100.dict")[self.scan_id]
+        f200 = torch.load(f"{SAMPLE_IDS_DIR}/200.dict")[self.scan_id]
+        self.sample_ids = {20: f20, 50: f50, 100: f100, 200: f200}
+        return self
+
+    def _load_plydata(self):
+        self.full_plydata = PlyData.read(f'{DATA_BASE_DIR}/{self.scan_id}/{self.scan_id}_vh_clean_2.labels.ply')
+        return self
+
+    def downsample(self):
+        assert hasattr(self, 'full_plydata') is not None
 
         # TODO restore color of the meshes
         temp_ply_path = f'.tmp_{self.scan_id}.ply'
 
-        plydata.write(temp_ply_path)
+        self.full_plydata.write(temp_ply_path)
         meshset = pymeshlab.MeshSet()
         meshset.load_new_mesh(temp_ply_path)
 
@@ -98,92 +153,46 @@ class SpecClusterPipeline():
 
         # TODO not necessary ?
         # new_ply_data = add_fields_online(new_ply_data, ['label', 'ushort'])
+        self.sampled_plydata = new_ply_data
+        self.full2sampled, self.sampled2full = setup_mapping(self.full_plydata, self.sampled_plydata)
+        return self
 
-        return new_ply_data
+    def calc_geod_dist(self):
+        assert self.sampled_plydata is not None
+        plydata = self.sampled_plydata
+        with count_time('calculate geodesic distances'):
+            vertices, faces = plydata_to_arrays(plydata)
+            solver = pp3d.MeshHeatMethodDistanceSolver(vertices, faces)
+            distances = []
+            for i in tqdm(range(len(plydata['vertex']))):
+                distances.append(solver.compute_distance(i))
 
-    def calc_geod_dist(self, plydata):
-        vertices, faces = plydata_to_arrays(plydata)
-        solver = pp3d.MeshHeatMethodDistanceSolver(vertices, faces)
-        distances = []
-        for i in tqdm(range(len(plydata['vertex']))):
-            distances.append(solver.compute_distance(i))
-        geod_mat = np.stack(distances)
-        geod_mat = (geod_mat + geod_mat.T) / 2
-        return geod_mat
+            geod_mat = np.stack(distances)
+            geod_mat = (geod_mat + geod_mat.T) / 2
+        self.geod_mat = geod_mat
+        return self
 
-    def calc_geod_dist_parallel(self, plydata: PlyData) -> np.ndarray:
-        start = datetime.now()
-        # TODO accelerate
-        point_count = len(plydata['vertex'])
-        vertices, faces = plydata_to_arrays(plydata)
-
-        ######### PARALLEL GENERATION ########
-        target = np.ndarray((vertices.shape[0], vertices.shape[0]), dtype=float)
-
-        shm_a = shared_memory.SharedMemory(create=True, size=vertices.nbytes)
-        shared_vertices = np.ndarray(vertices.shape, dtype=vertices.dtype, buffer=shm_a.buf)
-        shm_b = shared_memory.SharedMemory(create=True, size=faces.nbytes)
-        shared_faces = np.ndarray(faces.shape, dtype=faces.dtype, buffer=shm_b.buf)
-        shm_target = shared_memory.SharedMemory(create=True, size=target.nbytes)
-        shared_target = np.ndarray(target.shape, dtype=target.dtype, buffer=shm_target.buf)
-
-        shared_vertices[:] = vertices[:]
-        shared_faces[:] = faces[:]
-
-        def run(args):
-            start, end, v_name, f_name, t_name = args
-            shm_a = shared_memory.SharedMemory(name=v_name)
-            shm_b = shared_memory.SharedMemory(name=f_name)
-            shm_target = shared_memory.SharedMemory(name=t_name)
-            shared_vertices = np.ndarray(vertices.shape, dtype=vertices.dtype, buffer=shm_a.buf)
-            shared_faces = np.ndarray(faces.shape, dtype=faces.dtype, buffer=shm_b.buf)
-            shared_target = np.ndarray(target.shape, dtype=target.dtype, buffer=shm_target.buf)
-            solver = pp3d.MeshHeatMethodDistanceSolver(shared_vertices, shared_faces, t_coef=self.conf.getfloat('MeshHeatT'))
-            for idx in range(start, end):
-                shared_target[idx] = solver.compute_distance(idx)
-
-        nproc = 4
-        pool = ProcessPool(nodes=nproc)
-        results = pool.amap(run, [(idx, min(idx, idx + point_count // nproc), shm_a.name, shm_b.name, shm_target.name) for idx in range(nproc)])
-        while not results.ready():
-            print(".", end='', file=sys.stderr)
-            time.sleep(1)
-        pool.close()
-        pool.join()
-
-        geod_mat = np.copy(shared_target)
-        geod_mat = (geod_mat + geod_mat.T) / 2
-        # TODO check normalization method
-        geod_mat = geod_mat / geod_mat.mean()
-        shm_a.close()
-        shm_a.unlink()
-        shm_b.close()
-        shm_b.unlink()
-        shm_target.close()
-        shm_target.unlink()
-
-        end = datetime.now()
-        print(f'spent: {(end - start).seconds}')
-        return geod_mat
-
-    def calc_ang_dist(self, plydata) -> np.ndarray:
+    def calc_ang_dist(self):
+        assert self.sampled_plydata is not None
         pcd = o3d.geometry.PointCloud()
-        vertices = plydata_to_arrays(plydata)
+        vertices, _ = plydata_to_arrays(self.sampled_plydata)
         pcd.points = o3d.utility.Vector3dVector(vertices)
         pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamKNN(knn=self.conf.getint('NormalKnnRange')))
-        center = vertices.mean(dim=0)
+        center = vertices.mean(axis=0)
         pcd.orient_normals_towards_camera_location(center)
-        normals = np.asarray(pcd.normals)
-
+        normals = torch.tensor(np.array(pcd.normals)).cuda()
         # use absolute result
-        t = 1 - (normals @ normals.T).absolute()
+        t = 1 - (normals @ normals.T).abs()
         ang_mat = t / t.mean()
-        return ang_mat
+        self.ang_mat = np.array(ang_mat.cpu())
+        return self
 
-    def calc_aff_mat(self, _geod_mat, _ang_mat) -> np.ndarray:
-        geod_mat = torch.tensor(_geod_mat).cuda()
-        ang_mat = torch.tensor(_ang_mat).cuda()
-        ratio = self.conf.getfloat('DistanceProportion')
+    def calc_aff_mat(self, ratio: float = None):
+        assert self.geod_mat is not None
+        assert self.ang_mat is not None
+        geod_mat = torch.tensor(self.geod_mat).cuda()
+        ang_mat = torch.tensor(self.ang_mat).cuda()
+        ratio = self.conf.getfloat('DistanceProportion') if ratio is None else ratio
         dist_mat = ratio * geod_mat + (1 - ratio) * ang_mat
         dist_mat = (dist_mat + dist_mat.T) / 2
         sigma = dist_mat.mean() if self.conf.getboolean('AutoTemperature') else self.conf.getfloat('Temperature')
@@ -191,32 +200,54 @@ class SpecClusterPipeline():
 
         aff_iv_mat = torch.diag(1 / aff_mat.sum(dim=1).sqrt())
         n_mat = (aff_iv_mat @ aff_mat @ aff_iv_mat)
-        return np.array(n_mat.cpu())
+        self.aff_mat = np.array(n_mat.cpu())
+        return self
 
-    def calc_embedding(self, _aff_mat) -> np.ndarray:
-        aff_mat = torch.tensor(_aff_mat).cuda()
+    def calc_embedding(self):
+        assert self.aff_mat is not None
+        aff_mat = torch.tensor(self.aff_mat).cuda()
         eigh_vals, eigh_vecs = torch.linalg.eigh(aff_mat.cuda())
         eigh_vecs = eigh_vecs.T
         embedding = eigh_vecs[-self.conf.getint('Shots'):, :].flip(dims=(0,)).T
         embedding_cpu = embedding.cpu()
-        return np.array(embedding_cpu)
+        self.embedding_mat = np.array(embedding_cpu)
+        return self
 
-    def knn_cluster(self, embed_mat):
-        raise NotImplementedError
+    def knn_cluster(self, shot: int):
+        assert shot in (20, 50, 100, 200)
+        assert self.full_plydata is not None
+        assert self.full2sampled is not None
+        assert self.sample_ids is not None
+        assert self.embedding_mat is not None
+        selected_vertex_indices_in_sampled = self.full2sampled[self.sample_ids[shot]]
+        selected_vertex_labels = self.full_plydata['vertex']['label'][self.sample_ids[shot]]
+        self.cluster_result = KMeans(
+            n_clusters=shot,
+            init=self.embedding_mat[selected_vertex_indices_in_sampled],
+        ).fit(self.embedding_mat)
 
-    def upsample(self,):
-        raise NotImplementedError
+        selected_predicted_labels = self.cluster_result.predict(self.embedding_mat)
+        selected_predicted_labels = selected_vertex_labels[selected_predicted_labels]
+        selected_predicted_distances = self.cluster_result.transform(self.embedding_mat)
+        self.full_predicted_labels = selected_predicted_labels[self.full2sampled]
+        self.full_predicted_distances = selected_predicted_distances[self.full2sampled] 
+        return self
+
+    def evaluate_cluster_result(self):
+        assert len(self.full_predicted_labels == self.full_plydata['vertex']['label'])
+        correct = (self.full_plydata['vertex']['label'] == self.full_predicted_labels).sum()
+        total = len(self.full_plydata['vertex'])
+        print(f'Correctness: {correct * 100/total:.2f}')
+        return self
+
+    def visualize(self):
+        pass
 
 
 # %%
 if __name__ == '__main__':
-    pipeline = SpecClusterPipeline('a')
-    pd = PlyData.read('/home/aidrive/tb5zhh/SUField/data/scannetv2/scans/scene0702_00/scene0702_00_vh_clean_2.labels.ply')
-    pd = pipeline.downsample(pd)
-    print('start')
-    # mat = pipeline.calc_geod_dist_naive(pd)
-    # np.save('0.npy', mat)
+    pipeline = SpecClusterPipeline('scene0702_00')
+    pipeline.downsample().calc_geod_dist().calc_ang_dist()
+    pipeline.calc_aff_mat().calc_embedding().knn_cluster(20)
 
-    mat = pipeline.calc_geod_dist(pd)
-    np.save('1.npy', mat)
 # %%

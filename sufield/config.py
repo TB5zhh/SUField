@@ -45,4 +45,4 @@ SCANNET_COLOR_MAP = {
     39: (82., 84., 163.),
     40: (100., 85., 144.),
 }
-CONF_FILE = 'conf.ini'
+CONF_FILE = '/home/aidrive/tb5zhh/SUField/conf.ini'
