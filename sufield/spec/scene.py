@@ -1,13 +1,9 @@
 # %%
-import argparse
+import builtins
 import configparser
+from faulthandler import disable
 import os
-import sys
-import time
 from datetime import datetime
-from functools import wraps
-from multiprocessing import Pool, shared_memory
-from multiprocessing.managers import SharedMemoryManager
 from typing import *
 
 import numpy as np
@@ -16,9 +12,7 @@ import potpourri3d as pp3d
 import pymeshlab
 import torch
 from IPython import embed
-from pathos.pools import ProcessPool
 from plyfile import PlyData, PlyElement
-from potpourri3d import point_cloud
 from sklearnex import patch_sklearn
 from tqdm import tqdm
 
@@ -28,6 +22,8 @@ from sklearn.cluster import KMeans
 CONF_FILE = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/conf.ini'
 DATA_BASE_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/data/scannetv2/scans'
 SAMPLE_IDS_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SpecCluster/tbw/indices'
+SAVE_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/results'
+QUIET = True
 """
 Terminology:
 ply_name (scan_id): scene0000_00
@@ -61,6 +57,7 @@ def add_fields_online(plydata: PlyData, fields=[
 
 # %%
 from contextlib import contextmanager
+import functools
 
 
 @contextmanager
@@ -69,16 +66,38 @@ def count_time(name=None):
     start = datetime.now()
     yield
     end = datetime.now()
-    print(f"Time spent: {(end - start).seconds}s {(end-start).microseconds} ms")
+    print(f"Process {(name+' ') if name is not None else ''}spent: {(end - start).seconds}s {(end-start).microseconds // 1000} ms")
+
+
+def log(quiet=False):
+
+    def decorator(func):
+
+        @functools.wraps(func)
+        def wrapper(*args, **kw):
+            a = builtins.print
+            if not quiet:
+                print(f"Called {func.__name__}()")
+            else:
+                builtins.print = lambda *kw, **args: ...
+            ret = func(*args, **kw)
+            builtins.print = a
+            return ret
+
+        return wrapper
+
+    return decorator
 
 
 def timer(fn):
 
-    def inner():
+    @functools.wraps(fn)
+    def inner(*args, **kw):
         start = datetime.now()
-        fn()
+        r = fn(*args, **kw)
         end = datetime.now()
-        print(f"Time spent: {(end - start).seconds}s {(end-start).microseconds} ms")
+        print(f"{fn.__name__} spent: {(end - start).seconds}s {(end-start).microseconds} ms")
+        return r
 
     return inner
 
@@ -92,13 +111,14 @@ def plydata_to_arrays(plydata: PlyData) -> Tuple[np.ndarray, np.ndarray]:
 def setup_mapping(ply_origin: PlyData, ply_down_sampled: PlyData) -> Tuple[Dict, Dict]:
     full_coords, _ = plydata_to_arrays(ply_origin)
     sampled_coords, _ = plydata_to_arrays(ply_down_sampled)
-    full_coords = torch.tensor(full_coords).cuda()
-    sampled_coords = torch.tensor(sampled_coords).cuda()
+    full_coords = torch.as_tensor(full_coords)
+    sampled_coords = torch.as_tensor(sampled_coords)
     full2sampled = None
-    full2sampled = torch.tensor([((sampled_coords - coord)**2).sum(dim=1).min(dim=0)[1] for coord in full_coords
-                                ])  # use index in full mesh to find index of the closest in sampled mesh
-    sampled2full = torch.tensor([((full_coords - coord)**2).sum(dim=1).min(dim=0)[1] for coord in sampled_coords
-                                ])  # use index in smapled mesh to find index of the closest in full mesh
+    full2sampled = np.array(torch.as_tensor([((sampled_coords - coord)**2).sum(dim=1).min(dim=0)[1] for coord in full_coords
+                                            ]).cpu())  # use index in full mesh to find index of the closest in sampled mesh
+    sampled2full = np.array(torch.as_tensor([((full_coords - coord)**2).sum(dim=1).min(dim=0)[1] for coord in sampled_coords
+                                            ]).cpu())  # use index in smapled mesh to find index of the closest in full mesh
+    del full_coords, sampled_coords
     return full2sampled, sampled2full
 
 
@@ -107,8 +127,9 @@ def setup_mapping(ply_origin: PlyData, ply_down_sampled: PlyData) -> Tuple[Dict,
 
 class SpecClusterPipeline():
 
-    def __init__(self, scan_id: str) -> None:
+    def __init__(self, scan_id: str, quiet=False) -> None:
         self.scan_id = scan_id
+        self.quiet = quiet
         self.conf = configparser.ConfigParser()
         self.conf.read(CONF_FILE)
         self.conf = self.conf['Debug']
@@ -127,9 +148,10 @@ class SpecClusterPipeline():
         self.full_plydata = PlyData.read(f'{DATA_BASE_DIR}/{self.scan_id}/{self.scan_id}_vh_clean_2.labels.ply')
         return self
 
+    @log(QUIET)
     def downsample(self):
         assert hasattr(self, 'full_plydata') is not None
-
+        print('start')
         # TODO restore color of the meshes
         temp_ply_path = f'.tmp_{self.scan_id}.ply'
 
@@ -157,6 +179,8 @@ class SpecClusterPipeline():
         self.full2sampled, self.sampled2full = setup_mapping(self.full_plydata, self.sampled_plydata)
         return self
 
+    @timer
+    @log(QUIET)
     def calc_geod_dist(self):
         assert self.sampled_plydata is not None
         plydata = self.sampled_plydata
@@ -164,7 +188,7 @@ class SpecClusterPipeline():
             vertices, faces = plydata_to_arrays(plydata)
             solver = pp3d.MeshHeatMethodDistanceSolver(vertices, faces)
             distances = []
-            for i in tqdm(range(len(plydata['vertex']))):
+            for i in tqdm(range(len(plydata['vertex'])), disable=QUIET):
                 distances.append(solver.compute_distance(i))
 
             geod_mat = np.stack(distances)
@@ -172,7 +196,8 @@ class SpecClusterPipeline():
         self.geod_mat = geod_mat
         return self
 
-    def calc_ang_dist(self):
+    @log(QUIET)
+    def calc_ang_dist(self, normal_inv=True):
         assert self.sampled_plydata is not None
         pcd = o3d.geometry.PointCloud()
         vertices, _ = plydata_to_arrays(self.sampled_plydata)
@@ -180,18 +205,22 @@ class SpecClusterPipeline():
         pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamKNN(knn=self.conf.getint('NormalKnnRange')))
         center = vertices.mean(axis=0)
         pcd.orient_normals_towards_camera_location(center)
-        normals = torch.tensor(np.array(pcd.normals)).cuda()
+        normals = torch.as_tensor(np.array(pcd.normals))
         # use absolute result
-        t = 1 - (normals @ normals.T).abs()
+        if normal_inv:
+            t = 1 - (normals @ normals.T).abs()
+        else:
+            t = 1 - (normals @ normals.T)
         ang_mat = t / t.mean()
-        self.ang_mat = np.array(ang_mat.cpu())
+        self.ang_mat: torch.Tensor = ang_mat
         return self
 
+    @log(QUIET)
     def calc_aff_mat(self, ratio: float = None):
         assert self.geod_mat is not None
         assert self.ang_mat is not None
-        geod_mat = torch.tensor(self.geod_mat).cuda()
-        ang_mat = torch.tensor(self.ang_mat).cuda()
+        geod_mat = torch.as_tensor(self.geod_mat)
+        ang_mat = self.ang_mat
         ratio = self.conf.getfloat('DistanceProportion') if ratio is None else ratio
         dist_mat = ratio * geod_mat + (1 - ratio) * ang_mat
         dist_mat = (dist_mat + dist_mat.T) / 2
@@ -200,19 +229,21 @@ class SpecClusterPipeline():
 
         aff_iv_mat = torch.diag(1 / aff_mat.sum(dim=1).sqrt())
         n_mat = (aff_iv_mat @ aff_mat @ aff_iv_mat)
-        self.aff_mat = np.array(n_mat.cpu())
+        self.aff_mat: torch.Tensor = n_mat
         return self
 
-    def calc_embedding(self):
+    @log(QUIET)
+    def calc_embedding(self, feature: int):
         assert self.aff_mat is not None
-        aff_mat = torch.tensor(self.aff_mat).cuda()
+        aff_mat = self.aff_mat
         eigh_vals, eigh_vecs = torch.linalg.eigh(aff_mat.cuda())
         eigh_vecs = eigh_vecs.T
-        embedding = eigh_vecs[-self.conf.getint('Shots'):, :].flip(dims=(0,)).T
+        embedding = eigh_vecs[-feature:, :].flip(dims=(0,)).T
         embedding_cpu = embedding.cpu()
         self.embedding_mat = np.array(embedding_cpu)
         return self
 
+    @log(QUIET)
     def knn_cluster(self, shot: int):
         assert shot in (20, 50, 100, 200)
         assert self.full_plydata is not None
@@ -230,9 +261,10 @@ class SpecClusterPipeline():
         selected_predicted_labels = selected_vertex_labels[selected_predicted_labels]
         selected_predicted_distances = self.cluster_result.transform(self.embedding_mat)
         self.full_predicted_labels = selected_predicted_labels[self.full2sampled]
-        self.full_predicted_distances = selected_predicted_distances[self.full2sampled] 
+        self.full_predicted_distances = selected_predicted_distances[self.full2sampled]
         return self
 
+    @log(QUIET)
     def evaluate_cluster_result(self):
         assert len(self.full_predicted_labels == self.full_plydata['vertex']['label'])
         correct = (self.full_plydata['vertex']['label'] == self.full_predicted_labels).sum()
@@ -240,14 +272,28 @@ class SpecClusterPipeline():
         print(f'Correctness: {correct * 100/total:.2f}')
         return self
 
+    @log(QUIET)
+    def save(self):
+        torch.save({
+            "labels": self.full_predicted_labels,
+            "confidence": self.full_predicted_distances,
+        }, f"{SAVE_DIR}/{self.scan_id}_predictions.obj")
+        return self
+
     def visualize(self):
-        pass
+        raise NotImplementedError 
 
 
 # %%
 if __name__ == '__main__':
-    pipeline = SpecClusterPipeline('scene0702_00')
-    pipeline.downsample().calc_geod_dist().calc_ang_dist()
-    pipeline.calc_aff_mat().calc_embedding().knn_cluster(20)
-
+    with count_time('calculate one scene'):
+        pipeline = SpecClusterPipeline('scene0102_00')
+        pipeline.downsample()
+        pipeline.calc_geod_dist()
+        pipeline.calc_ang_dist()
+        for ratio in (0.4,):
+            pipeline.calc_aff_mat(ratio)
+            for feature in (100,):
+                pipeline.calc_embedding(feature).knn_cluster(20).evaluate_cluster_result()
+    embed()
 # %%
