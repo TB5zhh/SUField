@@ -1,8 +1,7 @@
 # %%
-import builtins
 import configparser
 import os
-from datetime import datetime
+import sys
 from typing import *
 
 import numpy as np
@@ -14,6 +13,8 @@ import torch
 from plyfile import PlyData, PlyElement
 from sklearnex import patch_sklearn
 from tqdm import tqdm
+
+from .utils import count_time, log, timer
 
 patch_sklearn()
 from sklearn.cluster import KMeans
@@ -56,51 +57,6 @@ def add_fields_online(plydata: PlyData, fields=[
 
 
 # %%
-from contextlib import contextmanager
-import functools
-import sys
-
-
-@contextmanager
-def count_time(name=None, file=sys.stdout):
-    print(f"Process {(name+' ') if name is not None else ''}start", file=file)
-    start = datetime.now()
-    yield
-    end = datetime.now()
-    print(f"Process {(name+' ') if name is not None else ''}spent: {(end - start).seconds}s {(end-start).microseconds // 1000} ms", file=file)
-
-
-def log(quiet=False):
-
-    def decorator(func):
-
-        @functools.wraps(func)
-        def wrapper(*args, **kw):
-            a = builtins.print
-            if not quiet:
-                print(f"Called {func.__name__}()")
-            else:
-                builtins.print = lambda *kw, **args:...
-            ret = func(*args, **kw)
-            builtins.print = a
-            return ret
-
-        return wrapper
-
-    return decorator
-
-
-def timer(fn):
-
-    @functools.wraps(fn)
-    def inner(*args, **kw):
-        start = datetime.now()
-        r = fn(*args, **kw)
-        end = datetime.now()
-        print(f"{fn.__name__} spent: {(end - start).seconds}s {(end-start).microseconds // 1000} ms")
-        return r
-
-    return inner
 
 
 def plydata_to_arrays(plydata: PlyData) -> Tuple[np.ndarray, np.ndarray]:
@@ -115,9 +71,9 @@ def setup_mapping(ply_origin: PlyData, ply_down_sampled: PlyData):
     full_coords = torch.as_tensor(full_coords).cuda()
     sampled_coords = torch.as_tensor(sampled_coords).cuda()
     full2sampled = torch.as_tensor([((sampled_coords - coord)**2).sum(dim=1).min(dim=0)[1] for coord in full_coords
-                                            ])  # use index in full mesh to find index of the closest in sampled mesh
+                                   ])  # use index in full mesh to find index of the closest in sampled mesh
     sampled2full = torch.as_tensor([((full_coords - coord)**2).sum(dim=1).min(dim=0)[1] for coord in sampled_coords
-                                            ])  # use index in smapled mesh to find index of the closest in full mesh
+                                   ])  # use index in smapled mesh to find index of the closest in full mesh
     del full_coords, sampled_coords
     return full2sampled, sampled2full
 
@@ -161,7 +117,7 @@ class SpecClusterPipeline():
 
         meshset.apply_filter(
             'simplification_quadric_edge_collapse_decimation',
-            targetperc=16000/len(self.full_plydata['vertex']),
+            targetperc=16000 / len(self.full_plydata['vertex']),
             autoclean=True,
             qualitythr=0.8,
         )

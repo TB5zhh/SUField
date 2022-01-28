@@ -1,13 +1,17 @@
-from configparser import SectionProxy as Sec
-import numpy as np
-from plyfile import PlyData, PlyElement
+import builtins
+import functools
 import logging
-import torch.distributed as dist
-import sys
 import os
 import random
-import torch
+import sys
+from configparser import SectionProxy as Sec
+from contextlib import contextmanager
 from datetime import datetime
+
+import numpy as np
+import torch
+import torch.distributed as dist
+from plyfile import PlyData, PlyElement
 
 
 def set_seeds(seed):
@@ -38,12 +42,7 @@ def setup_logging(conf: Sec):
 
     os.makedirs(f"{conf['LoggingDir']}/{conf['RunName']}", exist_ok=True)
     fh = logging.FileHandler(f"{conf['LoggingDir']}/{conf['RunName']}/{time_str}.log")
-    logging.basicConfig(
-        format='[%(asctime)s][%(funcName)s][%(levelname)s] %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        handlers=[ch, fh],
-        force=True
-    )
+    logging.basicConfig(format='[%(asctime)s][%(funcName)s][%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S', handlers=[ch, fh], force=True)
     if get_rank() > 0:
         logging.getLogger().setLevel(logging.ERROR)
     else:
@@ -108,3 +107,45 @@ def save_point_cloud(points_3d, filename, binary=True, with_label=False, verbose
                 f.write('%f %f %f %d %d %d 0\n' % (X, Y, Z, R, G, B))
     if verbose is True:
         print('Saved point cloud to: %s' % filename)
+
+
+@contextmanager
+def count_time(name=None, file=sys.stdout):
+    print(f"Process {(name+' ') if name is not None else ''}start", file=file)
+    start = datetime.now()
+    yield
+    end = datetime.now()
+    print(f"Process {(name+' ') if name is not None else ''}spent: {(end - start).seconds}s {(end-start).microseconds // 1000} ms", file=file)
+
+
+def log(quiet=False):
+
+    def decorator(func):
+
+        @functools.wraps(func)
+        def wrapper(*args, **kw):
+            a = builtins.print
+            if not quiet:
+                print(f"Called {func.__name__}()")
+            else:
+                builtins.print = lambda *kw, **args:...
+            ret = func(*args, **kw)
+            builtins.print = a
+            return ret
+
+        return wrapper
+
+    return decorator
+
+
+def timer(fn):
+
+    @functools.wraps(fn)
+    def inner(*args, **kw):
+        start = datetime.now()
+        r = fn(*args, **kw)
+        end = datetime.now()
+        print(f"{fn.__name__} spent: {(end - start).seconds}s {(end-start).microseconds // 1000} ms")
+        return r
+
+    return inner

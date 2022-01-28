@@ -1,0 +1,189 @@
+200_fit_sdouble 63.431242 available. Class-wise mIoU: 
+           wall: 67.79
+          floor: 18.82
+        cabinet: 45.13
+            bed: 69.98
+          chair: 77.10
+           sofa: 79.20
+          table: 58.23
+           door: 1.01
+         window: 60.12
+      bookshelf: 43.26
+        picture: 0.22
+        counter: 1.11
+           desk: 40.10
+        curtain: 75.69
+   refrigerator: 60.86
+ shower curtain: 10.14
+         toilet: 87.26
+           sink: 2.17
+        bathtub: 81.51
+ otherfurniture: 39.15
+200_fit_double 88.307610 available. Class-wise mIoU: 
+           wall: 66.56
+          floor: 83.15
+        cabinet: 44.29
+            bed: 68.75
+          chair: 76.09
+           sofa: 78.32
+          table: 55.74
+           door: 56.14
+         window: 57.41
+      bookshelf: 43.09
+        picture: 37.68
+        counter: 34.31
+           desk: 48.07
+        curtain: 73.95
+   refrigerator: 60.31
+ shower curtain: 72.49
+         toilet: 86.23
+           sink: 58.66
+        bathtub: 79.92
+ otherfurniture: 38.72
+200_fit_unc 87.386024 available. Class-wise mIoU: 
+           wall: 66.06
+          floor: 87.27
+        cabinet: 44.56
+            bed: 69.42
+          chair: 76.05
+           sofa: 78.31
+          table: 57.12
+           door: 57.26
+         window: 58.60
+      bookshelf: 43.08
+        picture: 38.61
+        counter: 34.40
+           desk: 38.68
+        curtain: 74.20
+   refrigerator: 60.42
+ shower curtain: 72.56
+         toilet: 86.47
+           sink: 58.91
+        bathtub: 80.07
+ otherfurniture: 38.84
+200_fit_spec 73.381911 available. Class-wise mIoU: 
+           wall: 67.91
+          floor: 17.88
+        cabinet: 44.74
+            bed: 69.13
+          chair: 76.93
+           sofa: 79.11
+          table: 56.33
+           door: 0.80
+         window: 58.20
+      bookshelf: 43.24
+        picture: 0.19
+        counter: 1.04
+           desk: 49.02
+        curtain: 75.21
+   refrigerator: 60.65
+ shower curtain: 9.70
+         toilet: 86.62
+           sink: 2.07
+        bathtub: 80.89
+ otherfurniture: 38.94
+100_fit_sdouble 84.430165 available. Class-wise mIoU: 
+           wall: 65.10
+          floor: 86.56
+        cabinet: 45.71
+            bed: 64.26
+          chair: 76.50
+           sofa: 78.21
+          table: 54.83
+           door: 57.29
+         window: 54.52
+      bookshelf: 39.00
+        picture: 14.19
+        counter: 32.03
+           desk: 47.48
+        curtain: 75.83
+   refrigerator: 56.89
+ shower curtain: 3.11
+         toilet: 76.94
+           sink: 0.65
+        bathtub: 75.35
+ otherfurniture: 38.88
+100_fit_double 90.951873 available. Class-wise mIoU: 
+           wall: 65.73
+          floor: 86.30
+        cabinet: 45.40
+            bed: 64.33
+          chair: 76.44
+           sofa: 78.15
+          table: 54.71
+           door: 56.50
+         window: 53.86
+      bookshelf: 39.27
+        picture: 37.71
+        counter: 32.88
+           desk: 47.33
+        curtain: 74.88
+   refrigerator: 56.77
+ shower curtain: 69.33
+         toilet: 76.70
+           sink: 54.70
+        bathtub: 75.28
+ otherfurniture: 38.67
+100_fit_unc 85.484896 available. Class-wise mIoU: 
+           wall: 64.82
+          floor: 86.56
+        cabinet: 45.56
+            bed: 64.25
+          chair: 76.49
+           sofa: 78.21
+          table: 54.82
+           door: 57.16
+         window: 54.45
+      bookshelf: 39.00
+        picture: 39.02
+        counter: 32.94
+           desk: 47.47
+        curtain: 75.35
+   refrigerator: 56.87
+ shower curtain: 69.35
+         toilet: 76.93
+           sink: 54.82
+        bathtub: 74.79
+ otherfurniture: 38.87
+100_fit_spec 98.945269 available. Class-wise mIoU: 
+           wall: 66.15
+          floor: 86.01
+        cabinet: 45.08
+            bed: 63.99
+          chair: 76.25
+           sofa: 78.01
+          table: 54.50
+           door: 55.40
+         window: 52.73
+      bookshelf: 39.13
+        picture: 10.92
+        counter: 31.81
+           desk: 47.14
+        curtain: 74.46
+   refrigerator: 56.55
+ shower curtain: 2.80
+         toilet: 76.34
+           sink: 0.63
+        bathtub: 75.05
+ otherfurniture: 38.36
+50_fit_sdouble 82.461741 available. Class-wise mIoU: 
+           wall: 63.56
+          floor: 85.08
+        cabinet: 42.13
+            bed: 61.31
+          chair: 73.21
+           sofa: 67.30
+          table: 57.08
+           door: 48.11
+         window: 50.44
+      bookshelf: 37.34
+        picture: 0.04
+        counter: 0.19
+           desk: 12.13
+        curtain: 70.21
+   refrigerator: 49.01
+ shower curtain: 65.57
+         toilet: 2.20
+           sink: 0.42
+        bathtub: 77.29
+ otherfurniture: 30.76
