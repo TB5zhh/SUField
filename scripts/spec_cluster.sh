@@ -8,4 +8,4 @@
 #SBATCH --array 0-7
 
 
-python -u sufield/spec/scene.py ${SLURM_ARRAY_TASK_ID} 8
+python -u -m sufield.spec_cluster ${SLURM_ARRAY_TASK_ID} 8
