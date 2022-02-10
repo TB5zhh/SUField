@@ -340,6 +340,7 @@ if __name__ == '__main__':
     else:
         main((int(sys.argv[1]), int(sys.argv[2])))
 
+VALID_CLASS_IDS = list(VALID_CLASS_IDS)
 def collect():
     """collect results from mid_Is_x.npy and mid_Os_x.npy"""
     Is = np.zeros((4,41))
@@ -349,6 +350,11 @@ def collect():
             Is += np.load(f)
         with open(f'results/spec_IOU/mid_Os_{i}.npy', 'rb') as f:
             Os += np.load(f)
-    print((Is / (Os + 1e-10)).mean(axis=1))
+    with open('tmp.out', 'w') as f:
+        for i in (Is / (Os + 1e-10))[:, VALID_CLASS_IDS]:
+            for j in i:
+                print(j, end='\t', file=f)
+            print(file=f)
+    print((Is / (Os + 1e-10))[:, VALID_CLASS_IDS].mean(axis=1))
         
 # %%
