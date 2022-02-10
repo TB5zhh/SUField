@@ -45,6 +45,7 @@ SCANNET_COLOR_MAP = {
     39: (82., 84., 163.),
     40: (100., 85., 144.),
 }
+
 CONF_FILE = '/home/aidrive/tb5zhh/SUField/conf.ini'
 TRAIN_ID_FILE = '/home/aidrive/tb5zhh/3d_scene_understand/3DScanSeg/splits/scannet/scannetv2_train.txt'
 with open(TRAIN_ID_FILE) as f:

@@ -6,3 +6,7 @@ wandb/
 log/
 checkpoints/
 *.obj
+*.ply
+*.npy
+.vscode/
+/tmp

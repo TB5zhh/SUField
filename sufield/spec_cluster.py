@@ -15,9 +15,12 @@ from sklearnex import patch_sklearn
 from tqdm import tqdm
 
 from .utils import count_time, log, timer
+from .config import SCANNET_COLOR_MAP
 
 patch_sklearn()
 from sklearn.cluster import KMeans
+from IPython import embed
+import wandb
 
 CONF_FILE = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/conf.ini'
 DATA_BASE_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/data/scannetv2/scans'
@@ -158,17 +161,19 @@ class SpecClusterPipeline():
 
     @timer
     @log(QUIET)
-    def calc_ang_dist(self, normal_inv=True):
+    def calc_ang_dist(self, abs_inv=True, knn_range=None):
         assert self.sampled_plydata is not None
+        knn = self.conf.getint('NormalKnnRange') if knn_range is None else knn_range
+
         pcd = o3d.geometry.PointCloud()
         vertices, _ = plydata_to_arrays(self.sampled_plydata)
         pcd.points = o3d.utility.Vector3dVector(vertices)
-        pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamKNN(knn=self.conf.getint('NormalKnnRange')))
+        pcd.estimate_normals(search_param=o3d.geometry.KDTreeSearchParamKNN(knn=knn))
         center = vertices.mean(axis=0)
         pcd.orient_normals_towards_camera_location(center)
         normals = torch.as_tensor(np.asarray(pcd.normals))
         # use absolute result
-        if normal_inv:
+        if abs_inv:
             t = 1 - (normals @ normals.T).abs()
         else:
             t = 1 - (normals @ normals.T)
@@ -181,9 +186,10 @@ class SpecClusterPipeline():
     def calc_aff_mat(self, ratio: float = None):
         assert self.geod_mat is not None
         assert self.ang_mat is not None
+        ratio = self.conf.getfloat('DistanceProportion') if ratio is None else ratio
+
         geod_mat = torch.as_tensor(self.geod_mat).cuda()
         ang_mat = self.ang_mat.cuda()
-        ratio = self.conf.getfloat('DistanceProportion') if ratio is None else ratio
         dist_mat = ratio * geod_mat + (1 - ratio) * ang_mat
         dist_mat = (dist_mat + dist_mat.T) / 2
         sigma = dist_mat.mean() if self.conf.getboolean('AutoTemperature') else self.conf.getfloat('Temperature')
@@ -242,6 +248,18 @@ class SpecClusterPipeline():
         print(f'Correctness: {correct * 100/total:.2f}%')
         return self
 
+    def evaluate_cluster_result_iou(self):
+        Is = np.zeros((41))
+        Os = np.zeros((41))
+        for cls_idx in range(41):
+            i = np.bitwise_and(self.full_predicted_labels == cls_idx, self.full_plydata['vertex']['label'] == cls_idx).sum()
+            o = np.bitwise_or(self.full_predicted_labels == cls_idx, self.full_plydata['vertex']['label'] == cls_idx).sum()
+            Is[cls_idx] = i
+            Os[cls_idx] = o
+        self.Is = Is
+        self.Os = Os
+        return self
+
     @log(QUIET)
     def save(self, shot):
         os.makedirs(f"{SAVE_DIR}/spec_predictions", exist_ok=True)
@@ -251,8 +269,15 @@ class SpecClusterPipeline():
         }, f"{SAVE_DIR}/spec_predictions/{self.scan_id}_{shot}.obj")
         return self
 
-    def visualize(self):
-        raise NotImplementedError
+    def save_visualize(self, dir):
+        assert self.full_predicted_labels is not None
+        os.makedirs(dir, exist_ok=True)
+        map_np = np.asarray(list(SCANNET_COLOR_MAP.values()))
+        self.full_plydata['vertex']['red'] = map_np[:, 0][self.full_predicted_labels]
+        self.full_plydata['vertex']['green'] = map_np[:, 1][self.full_predicted_labels]
+        self.full_plydata['vertex']['blue'] = map_np[:, 2][self.full_predicted_labels]
+        self.full_plydata.write(f'{dir}/{self.scan_id}.spec_clus.ply')
+        return self
 
 
 # %%
@@ -260,30 +285,70 @@ def main(arg):
     idx, all = arg
     global QUIET
     QUIET = False
-    correct_sum = 0
-    total_sum = 0
+    # correct_sum = 0
+    # total_sum = 0
     l = sorted(os.listdir(DATA_BASE_DIR))
     step = len(l) // all + 1
     start = idx * step
     end = (idx + 1) * step
+    Is = np.zeros((4, 41))
+    Os = np.zeros((4, 41))
+
     with open(f'{idx}.err', 'a') as f:
         print(f'{idx} start!')
-        for scan_id in l[start:end]:
-            if os.path.isfile(f'{SAVE_DIR}/spec_predictions/{scan_id}_20.obj'):
-                print(f"skip {scan_id}")
-                continue
+        for eidx, scan_id in enumerate(l[start:end]):
             try:
                 pipeline = SpecClusterPipeline(scan_id)
             except:
                 print(f"no {scan_id}")
                 continue
-            with count_time(f"{scan_id}"):
+            with count_time(f"{scan_id} part 1"):
                 pipeline.downsample().calc_geod_dist().calc_ang_dist().calc_aff_mat().calc_embedding().setup_mapping()
-                for shot in (20, 50, 100, 200):
-                    pipeline.knn_cluster(shot).save(shot).evaluate_cluster_result(correct_sum, total_sum)
+            for cidx, shot in enumerate((20, 50, 100, 200)):
+                with count_time(f"{scan_id} part 2 {shot}"):
+                    pipeline.knn_cluster(shot).evaluate_cluster_result_iou()
+                    Is[cidx] += pipeline.Is
+                    Os[cidx] += pipeline.Os
+
+                wandb.log({
+                    f"per_scene_iou_mean_{shot}": (pipeline.Is / (pipeline.Os + 1e-10)).mean(),
+                    f"per_scene_iou_{shot}": (pipeline.Is / (pipeline.Os + 1e-10)),
+                })
+            wandb.log({
+                "iou_mean_20": (Is / (Os + 1e-10)).mean(axis=1)[0],
+                "iou_mean_50": (Is / (Os + 1e-10)).mean(axis=1)[1],
+                "iou_mean_100": (Is / (Os + 1e-10)).mean(axis=1)[2],
+                "iou_mean_200": (Is / (Os + 1e-10)).mean(axis=1)[3],
+                "iou": (Is / (Os + 1e-10)),
+            })
+            print(f"{(Is / (Os + 1e-10)).mean(axis=1) * 100}")
+            os.system(f'/home/aidrive/tb5zhh/utils/CUDA-Setup-CN/slack/send.sh {idx}: {eidx}/{end-start} {pipeline.scan_id}')
+            del pipeline
+            with open(f'mid_Is_{idx}.npy', 'wb') as f:
+                np.save(f, Is)
+            with open(f'mid_Os_{idx}.npy', 'wb') as f:
+                np.save(f, Os)
+        
+        print(f"{(Is / (Os + 1e-10)).mean(axis=1) * 100}")
+
 
 
 if __name__ == '__main__':
-    main((int(sys.argv[1]), int(sys.argv[2])))
+    wandb.init(project="spectral_cluster", entity="tb5zhh")
+    if len(sys.argv) == 1:
+        main((0, 1))
+    else:
+        main((int(sys.argv[1]), int(sys.argv[2])))
 
+def collect():
+    """collect results from mid_Is_x.npy and mid_Os_x.npy"""
+    Is = np.zeros((4,41))
+    Os = np.zeros((4,41))
+    for i in range(8):
+        with open(f'mid_Is_{i}.npy', 'rb') as f:
+            Is += np.load(f)
+        with open(f'mid_Os_{i}.npy', 'rb') as f:
+            Os += np.load(f)
+    print((Is / (Os + 1e-10)).mean(axis=1))
+        
 # %%

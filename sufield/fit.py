@@ -79,10 +79,11 @@ class FitRunner():
         self.fit_params = [None for _ in range(NUM_CLS)]
         self.debug = debug
 
-    def load(self, cache=True):
+    def load(self, cache=True, cache_ver=None):
         # records = [[np.ndarray((0)), np.ndarray((0))] for _ in range(NUM_CLS)]  # don't ever use [] * n again !!
-        if cache and os.path.isfile(f'load_cache_{self.num_point}_v{self.CACHE_VER}.obj'):
-            cache = torch.load(f'load_cache_{self.num_point}_v{self.CACHE_VER}.obj')
+        ver = self.CACHE_VER if cache_ver is None else cache_ver
+        if cache and os.path.isfile(f'load_cache_{self.num_point}_v{ver}.obj'):
+            cache = torch.load(f'load_cache_{self.num_point}_v{ver}.obj')
             self.spec_stat = [i.cuda() for i in cache['spec_stat']]
             self.unc_stat = [i.cuda() for i in cache['unc_stat']]
         else:
@@ -132,6 +133,7 @@ class FitRunner():
             render=False,
             init_unc=[(2, 2), (1, 1)],
             init_spec=[(2, 1), (1.5, 2)],
+            em_step=100,
             part=False):
         if part:
             it = fitted_cls
@@ -152,7 +154,7 @@ class FitRunner():
             params_unc = torch.as_tensor(init_unc, dtype=torch.float64).cuda()
             weights_unc = torch.as_tensor(0.5).cuda()
 
-            for _ in range(100):
+            for _ in range(em_step):
                 if fit_spec:
                     divisor = weights_spec * pdf_spec(self.spec_stat[cls_id], params_spec[0]) + (1 - weights_spec) * pdf_spec(
                         self.spec_stat[cls_id], params_spec[1])
@@ -382,7 +384,7 @@ class FitRunner():
             correct_ds.append(correct_d)
             incorrect_d = unc_confidence[torch.as_tensor(VALID_CLASS_IDS)[unc_labels] != torch.as_tensor(gt_labels)]
             incorrect_ds.append(incorrect_d)
-        
+
         self.correct_ds = np.hstack(correct_ds)
         self.incorrect_ds = np.hstack(incorrect_ds)
 
@@ -487,8 +489,6 @@ class FitRunner():
         return self
 
 
-
-
 # %%
 # if __name__ == '__main__':
 # a = FitRunner(100, debug=False).validate_render()
@@ -499,16 +499,19 @@ class FitRunner():
 # a.generate().validate_render()
 # a.load().fit()
 
+
 # %%
 def draw(t):
     n_bins = 400
     width = 1 / n_bins
     fig = plt.figure(dpi=400)
     x = [i * 1 / n_bins for i in range(n_bins)]
-    y = torch.histc(torch.as_tensor(t), bins=n_bins, min=0,max=1)
-    ax = fig.add_subplot(1,1,1)
-    ax.bar(x,y,width=width)
+    y = torch.histc(torch.as_tensor(t), bins=n_bins, min=0, max=1)
+    ax = fig.add_subplot(1, 1, 1)
+    ax.bar(x, y, width=width)
     plt.show()
+
+
 a = FitRunner(200, debug=False).unc_label_bins()
 draw(a.correct_ds)
 draw(a.incorrect_ds)
