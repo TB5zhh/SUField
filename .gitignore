@@ -1,7 +1,6 @@
 **/__pycache__
 /data
 .nfs*
-conf.ini
 wandb/
 log/
 checkpoints/
