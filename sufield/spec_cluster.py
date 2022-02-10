@@ -345,9 +345,9 @@ def collect():
     Is = np.zeros((4,41))
     Os = np.zeros((4,41))
     for i in range(8):
-        with open(f'mid_Is_{i}.npy', 'rb') as f:
+        with open(f'results/spec_IOU/mid_Is_{i}.npy', 'rb') as f:
             Is += np.load(f)
-        with open(f'mid_Os_{i}.npy', 'rb') as f:
+        with open(f'results/spec_IOU/mid_Os_{i}.npy', 'rb') as f:
             Os += np.load(f)
     print((Is / (Os + 1e-10)).mean(axis=1))
         
