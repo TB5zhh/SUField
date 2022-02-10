@@ -303,7 +303,7 @@ def main(arg):
                 print(f"no {scan_id}")
                 continue
             with count_time(f"{scan_id} part 1"):
-                pipeline.downsample().calc_geod_dist().calc_ang_dist().calc_aff_mat().calc_embedding().setup_mapping()
+                pipeline.downsample().calc_geod_dist().calc_ang_dist(abs_inv=False).calc_aff_mat().calc_embedding().setup_mapping()
             for cidx, shot in enumerate((20, 50, 100, 200)):
                 with count_time(f"{scan_id} part 2 {shot}"):
                     pipeline.knn_cluster(shot).evaluate_cluster_result_iou()
@@ -328,9 +328,8 @@ def main(arg):
                 np.save(f, Is)
             with open(f'mid_Os_{idx}.npy', 'wb') as f:
                 np.save(f, Os)
-        
-        print(f"{(Is / (Os + 1e-10)).mean(axis=1) * 100}")
 
+        print(f"{(Is / (Os + 1e-10)).mean(axis=1) * 100}")
 
 
 if __name__ == '__main__':
@@ -341,10 +340,12 @@ if __name__ == '__main__':
         main((int(sys.argv[1]), int(sys.argv[2])))
 
 VALID_CLASS_IDS = list(VALID_CLASS_IDS)
+
+
 def collect():
     """collect results from mid_Is_x.npy and mid_Os_x.npy"""
-    Is = np.zeros((4,41))
-    Os = np.zeros((4,41))
+    Is = np.zeros((4, 41))
+    Os = np.zeros((4, 41))
     for i in range(8):
         with open(f'results/spec_IOU/mid_Is_{i}.npy', 'rb') as f:
             Is += np.load(f)
@@ -356,5 +357,6 @@ def collect():
                 print(j, end='\t', file=f)
             print(file=f)
     print((Is / (Os + 1e-10))[:, VALID_CLASS_IDS].mean(axis=1))
-        
+
+
 # %%
