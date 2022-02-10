@@ -15,7 +15,7 @@ from sklearnex import patch_sklearn
 from tqdm import tqdm
 
 from .utils import count_time, log, timer
-from .config import SCANNET_COLOR_MAP
+from .config import SCANNET_COLOR_MAP, VALID_CLASS_IDS, TRAIN_IDS
 
 patch_sklearn()
 from sklearn.cluster import KMeans
@@ -287,7 +287,8 @@ def main(arg):
     QUIET = False
     # correct_sum = 0
     # total_sum = 0
-    l = sorted(os.listdir(DATA_BASE_DIR))
+    # l = sorted(os.listdir(DATA_BASE_DIR))
+    l = TRAIN_IDS
     step = len(l) // all + 1
     start = idx * step
     end = (idx + 1) * step
@@ -347,9 +348,9 @@ def collect():
     Is = np.zeros((4, 41))
     Os = np.zeros((4, 41))
     for i in range(8):
-        with open(f'results/spec_IOU/mid_Is_{i}.npy', 'rb') as f:
+        with open(f'mid_Is_{i}.npy', 'rb') as f:
             Is += np.load(f)
-        with open(f'results/spec_IOU/mid_Os_{i}.npy', 'rb') as f:
+        with open(f'mid_Os_{i}.npy', 'rb') as f:
             Os += np.load(f)
     with open('tmp.out', 'w') as f:
         for i in (Is / (Os + 1e-10))[:, VALID_CLASS_IDS]:
