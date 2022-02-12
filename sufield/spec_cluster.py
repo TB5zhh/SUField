@@ -3,6 +3,7 @@ import configparser
 import os
 import sys
 from typing import *
+import shutil
 
 import numpy as np
 import open3d as o3d
@@ -187,7 +188,7 @@ class SpecClusterPipeline():
         assert self.geod_mat is not None
         assert self.ang_mat is not None
         ratio = self.conf.getfloat('DistanceProportion') if ratio is None else ratio
-
+        print(ratio)
         geod_mat = torch.as_tensor(self.geod_mat).cuda()
         ang_mat = self.ang_mat.cuda()
         dist_mat = ratio * geod_mat + (1 - ratio) * ang_mat
@@ -304,7 +305,7 @@ def main(arg):
                 print(f"no {scan_id}")
                 continue
             with count_time(f"{scan_id} part 1"):
-                pipeline.downsample().calc_geod_dist().calc_ang_dist(abs_inv=False).calc_aff_mat().calc_embedding().setup_mapping()
+                pipeline.downsample().calc_geod_dist().calc_ang_dist(abs_inv=False).calc_aff_mat(ratio=0.6).calc_embedding().setup_mapping()
             for cidx, shot in enumerate((20, 50, 100, 200)):
                 with count_time(f"{scan_id} part 2 {shot}"):
                     pipeline.knn_cluster(shot).evaluate_cluster_result_iou()
@@ -325,11 +326,12 @@ def main(arg):
             print(f"{(Is / (Os + 1e-10)).mean(axis=1) * 100}")
             os.system(f'/home/aidrive/tb5zhh/utils/CUDA-Setup-CN/slack/send.sh {idx}: {eidx}/{end-start} {pipeline.scan_id}')
             del pipeline
-            with open(f'mid_Is_{idx}.npy', 'wb') as f:
+            with open(f'mid_Is_{idx}.npy.new', 'wb') as f:
                 np.save(f, Is)
-            with open(f'mid_Os_{idx}.npy', 'wb') as f:
+            with open(f'mid_Os_{idx}.npy.new', 'wb') as f:
                 np.save(f, Os)
-
+            shutil.move(f'mid_Is_{idx}.npy.new', f'mid_Is_{idx}.npy')
+            shutil.move(f'mid_Os_{idx}.npy.new', f'mid_Os_{idx}.npy')
         print(f"{(Is / (Os + 1e-10)).mean(axis=1) * 100}")
 
 
