@@ -305,7 +305,7 @@ def main(arg):
                 print(f"no {scan_id}")
                 continue
             with count_time(f"{scan_id} part 1"):
-                pipeline.downsample().calc_geod_dist().calc_ang_dist(abs_inv=False).calc_aff_mat(ratio=0.2).calc_embedding().setup_mapping()
+                pipeline.downsample().calc_geod_dist().calc_ang_dist(abs_inv=False).calc_aff_mat(ratio=1).calc_embedding().setup_mapping()
             for cidx, shot in enumerate((20, 50, 100, 200)):
                 with count_time(f"{scan_id} part 2 {shot}"):
                     pipeline.knn_cluster(shot).evaluate_cluster_result_iou()
