@@ -305,7 +305,7 @@ def main(arg):
                 print(f"no {scan_id}")
                 continue
             with count_time(f"{scan_id} part 1"):
-                pipeline.downsample().calc_geod_dist().calc_ang_dist(abs_inv=True).calc_aff_mat(ratio=0.6).calc_embedding(feature=50).setup_mapping()
+                pipeline.downsample().calc_geod_dist().calc_ang_dist(abs_inv=True).calc_aff_mat(ratio=0.6).calc_embedding(feature=10).setup_mapping()
             for cidx, shot in enumerate((20, 50, 100, 200)):
                 with count_time(f"{scan_id} part 2 {shot}"):
                     pipeline.knn_cluster(shot).evaluate_cluster_result_iou()
@@ -342,6 +342,7 @@ if __name__ == '__main__':
         main((0, 1))
     else:
         main((int(sys.argv[1]), int(sys.argv[2])))
+    print(wandb.run.name)
 
 VALID_CLASS_IDS = list(VALID_CLASS_IDS)
 
@@ -361,7 +362,6 @@ def collect():
                 print(j, end='\t', file=f)
             print(file=f)
     print((Is / (Os + 1e-10))[:, VALID_CLASS_IDS].mean(axis=1))
-    print(wandb.run.name)
 
 
 # %%
