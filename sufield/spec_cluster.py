@@ -22,7 +22,7 @@ patch_sklearn()
 from sklearn.cluster import KMeans
 from IPython import embed
 import wandb
-
+from random import randint
 CONF_FILE = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/conf.ini'
 DATA_BASE_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/data/scannetv2/scans'
 SAMPLE_IDS_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SpecCluster/tbw/indices'
@@ -113,7 +113,7 @@ class SpecClusterPipeline():
         assert hasattr(self, 'full_plydata') is not None
         print('start')
         # TODO restore color of the meshes
-        temp_ply_path = f'/run/user/3023/.tmp_{self.scan_id}.ply'
+        temp_ply_path = f'/run/user/3023/.tmp_{self.scan_id}_{randint(0,65535)}.ply'
 
         self.full_plydata.write(temp_ply_path)
         meshset = pymeshlab.MeshSet()
@@ -305,7 +305,7 @@ def main(arg):
                 print(f"no {scan_id}")
                 continue
             with count_time(f"{scan_id} part 1"):
-                pipeline.downsample().calc_geod_dist().calc_ang_dist(abs_inv=True).calc_aff_mat(ratio=0.6).calc_embedding(feature=10).setup_mapping()
+                pipeline.downsample().calc_geod_dist().calc_ang_dist(abs_inv=True).calc_aff_mat(ratio=0.6).calc_embedding(feature=110).setup_mapping()
             for cidx, shot in enumerate((20, 50, 100, 200)):
                 with count_time(f"{scan_id} part 2 {shot}"):
                     pipeline.knn_cluster(shot).evaluate_cluster_result_iou()
@@ -327,12 +327,12 @@ def main(arg):
             if (idx + 1) % 50 == 0:
                 os.system(f'/home/aidrive/tb5zhh/utils/CUDA-Setup-CN/slack/send.sh {idx}: {eidx}/{end-start} {pipeline.scan_id}')
             del pipeline
-            with open(f'mid_Is_{idx}.npy.new', 'wb') as f:
+            with open(f'another_mid_Is_{idx}.npy.new', 'wb') as f:
                 np.save(f, Is)
-            with open(f'mid_Os_{idx}.npy.new', 'wb') as f:
+            with open(f'another_mid_Os_{idx}.npy.new', 'wb') as f:
                 np.save(f, Os)
-            shutil.move(f'mid_Is_{idx}.npy.new', f'mid_Is_{idx}.npy')
-            shutil.move(f'mid_Os_{idx}.npy.new', f'mid_Os_{idx}.npy')
+            shutil.move(f'another_mid_Is_{idx}.npy.new', f'another_mid_Is_{idx}.npy')
+            shutil.move(f'another_mid_Os_{idx}.npy.new', f'another_mid_Os_{idx}.npy')
         print(f"{(Is / (Os + 1e-10)).mean(axis=1) * 100}")
 
 
@@ -344,17 +344,18 @@ if __name__ == '__main__':
         main((int(sys.argv[1]), int(sys.argv[2])))
     print(wandb.run.name)
 
-VALID_CLASS_IDS = list(VALID_CLASS_IDS)
 
+VALID_CLASS_IDS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39)
+VALID_CLASS_IDS = list(VALID_CLASS_IDS)
 
 def collect():
     """collect results from mid_Is_x.npy and mid_Os_x.npy"""
     Is = np.zeros((4, 41))
     Os = np.zeros((4, 41))
     for i in range(8):
-        with open(f'mid_Is_{i}.npy', 'rb') as f:
+        with open(f'another_mid_Is_{i}.npy', 'rb') as f:
             Is += np.load(f)
-        with open(f'mid_Os_{i}.npy', 'rb') as f:
+        with open(f'another_mid_Os_{i}.npy', 'rb') as f:
             Os += np.load(f)
     with open('tmp.out', 'w') as f:
         for i in (Is / (Os + 1e-10))[:, VALID_CLASS_IDS]:
