@@ -1,9 +1,7 @@
 # %%
 import configparser
 import os
-import sys
 from typing import *
-import shutil
 
 import numpy as np
 import open3d as o3d
@@ -15,30 +13,61 @@ from plyfile import PlyData, PlyElement
 from sklearnex import patch_sklearn
 from tqdm import tqdm
 
-from .utils import count_time, log, timer
-from .config import SCANNET_COLOR_MAP, VALID_CLASS_IDS, TRAIN_IDS
-# TRAIN_IDS = [
-# "scene0630_00",
-# "scene0630_01",
-# "scene0630_02",
-# "scene0630_03",
-# "scene0385_02",
-# "scene0000_00",
-# "scene0000_01",
-# "scene0000_02",
-# ]
+from utils import count_time, log, timer
+
+SCANNET_COLOR_MAP = {
+    0: (0., 0., 0.),
+    1: (174., 199., 232.),
+    2: (152., 223., 138.),
+    3: (31., 119., 180.),
+    4: (255., 187., 120.),
+    5: (188., 189., 34.),
+    6: (140., 86., 75.),
+    7: (255., 152., 150.),
+    8: (214., 39., 40.),
+    9: (197., 176., 213.),
+    10: (148., 103., 189.),
+    11: (196., 156., 148.),
+    12: (23., 190., 207.),
+    13: (124., 232., 109.),
+    14: (247., 182., 210.),
+    15: (66., 188., 102.),
+    16: (219., 219., 141.),
+    17: (140., 57., 197.),
+    18: (202., 185., 52.),
+    19: (51., 176., 203.),
+    20: (200., 54., 131.),
+    21: (92., 193., 61.),
+    22: (78., 71., 183.),
+    23: (172., 114., 82.),
+    24: (255., 127., 14.),
+    25: (91., 163., 138.),
+    26: (153., 98., 156.),
+    27: (140., 153., 101.),
+    28: (158., 218., 229.),
+    29: (100., 125., 154.),
+    30: (178., 127., 135.),
+    31: (56., 23, 131.),
+    32: (146., 111., 194.),
+    33: (44., 160., 44.),
+    34: (112., 128., 144.),
+    35: (96., 207., 209.),
+    36: (227., 119., 194.),
+    37: (213., 92., 176.),
+    38: (94., 106., 211.),
+    39: (82., 84., 163.),
+    40: (100., 85., 144.),
+}
+
 patch_sklearn()
 from sklearn.cluster import KMeans
 from IPython import embed
 import wandb
 from random import randint
+
 CONF_FILE = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/conf.ini'
-DATA_BASE_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/data/scannetv2/scans'
-SAMPLE_IDS_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SpecCluster/tbw/indices'
-SAVE_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/results'
-# SAVE_DIR = '/mnt/air-01-data2/tbw'
 QUIET = True
-WANDB = True
+WANDB = False
 """
 Terminology:
 ply_name (scan_id): scene0000_00
@@ -93,45 +122,47 @@ def setup_mapping(ply_origin: PlyData, ply_down_sampled: PlyData):
 
 
 # %%
+import re
 
 
 class SpecClusterPipeline():
 
-    def __init__(self, scan_id: str) -> None:
-        self.scan_id = scan_id
+    def __init__(self, scan_path, count=200) -> None:
+        self._load_plydata(scan_path)
+        self.scan_id = re.findall('scene\d\d\d\d_\d\d', scan_path)[0]
         self.conf = configparser.ConfigParser()
         self.conf.read(CONF_FILE)
         self.conf = self.conf['Debug']
-        self._load_sample_ids()
-        self._load_plydata()
+        self._load_sample_ids(count)
 
-    def _load_sample_ids(self):
-        f20 = torch.load(f"{SAMPLE_IDS_DIR}/20.dict")[self.scan_id]
-        f50 = torch.load(f"{SAMPLE_IDS_DIR}/50.dict")[self.scan_id]
-        f100 = torch.load(f"{SAMPLE_IDS_DIR}/100.dict")[self.scan_id]
-        f200 = torch.load(f"{SAMPLE_IDS_DIR}/200.dict")[self.scan_id]
-        self.sample_ids = {20: f20, 50: f50, 100: f100, 200: f200}
+    def _load_plydata(self, scan_path):
+        self.full_plydata = PlyData.read(scan_path)
         return self
 
-    def _load_plydata(self):
-        self.full_plydata = PlyData.read(f'{DATA_BASE_DIR}/{self.scan_id}/{self.scan_id}_vh_clean_2.labels.ply')
+    def _load_sample_ids(self, count=200):
+        self.sample_ids: List[int] = []
+        while len(self.sample_ids) < count:
+            while True:
+                drawn = randint(0, len(self.full_plydata['vertex']) - 1)
+                if drawn not in self.sample_ids:
+                    self.sample_ids.append(drawn)
+                    break
         return self
 
     @timer
     @log(False)
-    def downsample(self, dstarget = 8000):
+    def downsample(self, dstarget=8000):
         assert hasattr(self, 'full_plydata') is not None
         print('start')
         # TODO restore color of the meshes
-        temp_ply_path = f'/run/user/3023/.tmp_{self.scan_id}_{randint(0,65535)}.ply'
-
+        temp_ply_path = f'/run/user/3023/.tmp_{randint(0,65535)}.ply'
         self.full_plydata.write(temp_ply_path)
         meshset = pymeshlab.MeshSet()
         meshset.load_new_mesh(temp_ply_path)
 
         meshset.apply_filter(
             'simplification_quadric_edge_collapse_decimation',
-            targetperc= dstarget / len(self.full_plydata['vertex']),
+            targetperc=dstarget / len(self.full_plydata['vertex']),
             autoclean=True,
             qualitythr=0.8,
         )
@@ -151,6 +182,7 @@ class SpecClusterPipeline():
     @log(QUIET)
     def setup_mapping(self):
         self.full2sampled, self.sampled2full = setup_mapping(self.full_plydata, self.sampled_plydata)
+        return self
 
     @timer
     @log(QUIET)
@@ -225,14 +257,14 @@ class SpecClusterPipeline():
 
     @timer
     @log(QUIET)
-    def knn_cluster(self, shot: int):
-        assert shot in (20, 50, 100, 200)
+    def knn_cluster(self):
+        shot = len(self.sample_ids)
         assert self.full_plydata is not None
         assert self.full2sampled is not None
         assert self.sample_ids is not None
         assert self.embedding_mat is not None
-        selected_vertex_indices_in_sampled = self.full2sampled[self.sample_ids[shot]]
-        selected_vertex_labels = self.full_plydata['vertex']['label'][self.sample_ids[shot]]
+        selected_vertex_indices_in_sampled = self.full2sampled[self.sample_ids]
+        selected_vertex_labels = self.full_plydata['vertex']['label'][self.sample_ids]
         self.cluster_result = KMeans(
             n_clusters=shot,
             init=self.embedding_mat[selected_vertex_indices_in_sampled],
@@ -272,15 +304,16 @@ class SpecClusterPipeline():
         return self
 
     @log(QUIET)
-    def save(self, shot):
-        os.makedirs(f"{SAVE_DIR}/spec_predictions", exist_ok=True)
+    def save(self, save_dir="debug"):
+        shot = len(self.sample_ids)
+        os.makedirs(f"{save_dir}/spec_predictions", exist_ok=True)
         torch.save({
             "labels": self.full_predicted_labels,
             "confidence": self.full_predicted_distances,
-        }, f"{SAVE_DIR}/spec_predictions/{self.scan_id}_{shot}.obj")
+        }, f"{save_dir}/spec_predictions/{self.scan_id}_{shot}.obj")
         return self
 
-    def save_visualize(self, dir):
+    def save_visualize(self, dir='debug'):
         assert self.full_predicted_labels is not None
         os.makedirs(dir, exist_ok=True)
         map_np = np.asarray(list(SCANNET_COLOR_MAP.values()))
@@ -292,90 +325,53 @@ class SpecClusterPipeline():
 
 
 # %%
-def main(arg):
-    idx, all = arg
-    global QUIET
-    QUIET = False
-    # correct_sum = 0
-    # total_sum = 0
-    # l = sorted(os.listdir(DATA_BASE_DIR))
-    l = TRAIN_IDS
-    step = (len(l) + all - 1) // all
-    start = idx * step
-    end = (idx + 1) * step
-    Is = np.zeros((4, 41))
-    Os = np.zeros((4, 41))
-
-    with open(f'{idx}.err', 'a') as f:
-        print(f'{idx} start!')
-        for eidx, scan_id in enumerate(l[start:end]):
-            try:
-                pipeline = SpecClusterPipeline(scan_id)
-            except:
-                print(f"no {scan_id}")
-                continue
-            with count_time(f"{scan_id} part 1"):
-                pipeline.downsample(dstarget=8000).calc_geod_dist().calc_ang_dist(abs_inv=True).calc_aff_mat(ratio=0.6).calc_embedding(feature=50).setup_mapping()
-            for cidx, shot in enumerate((20, 50, 100, 200)):
-                with count_time(f"{scan_id} part 2 {shot}"):
-                    pipeline.knn_cluster(shot).evaluate_cluster_result_iou().save(shot)
-                    Is[cidx] += pipeline.Is
-                    Os[cidx] += pipeline.Os
-                if WANDB:
-                    wandb.log({
-                        f"per_scene_iou_mean_{shot}": (pipeline.Is / (pipeline.Os + 1e-10)).mean(),
-                        f"per_scene_iou_{shot}": (pipeline.Is / (pipeline.Os + 1e-10)),
-                    })
-            if WANDB:
-                wandb.log({
-                    "iou_mean_20": (Is / (Os + 1e-10)).mean(axis=1)[0],
-                    "iou_mean_50": (Is / (Os + 1e-10)).mean(axis=1)[1],
-                    "iou_mean_100": (Is / (Os + 1e-10)).mean(axis=1)[2],
-                    "iou_mean_200": (Is / (Os + 1e-10)).mean(axis=1)[3],
-                    "iou": (Is / (Os + 1e-10)),
-                })
-            print(f"{(Is / (Os + 1e-10)).mean(axis=1) * 100}")
-            if (idx + 1) % 50 == 0:
-                os.system(f'/home/aidrive/tb5zhh/utils/CUDA-Setup-CN/slack/send.sh {idx}: {eidx}/{end-start} {pipeline.scan_id}')
-            del pipeline
-            with open(f'another_mid_Is_{idx}.npy.new', 'wb') as f:
-                np.save(f, Is)
-            with open(f'another_mid_Os_{idx}.npy.new', 'wb') as f:
-                np.save(f, Os)
-            shutil.move(f'another_mid_Is_{idx}.npy.new', f'another_mid_Is_{idx}.npy')
-            shutil.move(f'another_mid_Os_{idx}.npy.new', f'another_mid_Os_{idx}.npy')
-        print(f"{(Is / (Os + 1e-10)).mean(axis=1) * 100}")
+def main(scan_path, output_dir='debug', shot=200):
+    pipeline = SpecClusterPipeline(scan_path, shot)
+    pipeline \
+        .downsample(dstarget=8000) \
+        .calc_geod_dist() \
+        .calc_ang_dist(abs_inv=True) \
+        .calc_aff_mat(ratio=0.6) \
+        .calc_embedding(feature=50) \
+        .setup_mapping() \
+        .knn_cluster() \
+        .evaluate_cluster_result_iou() \
+        .save_visualize(output_dir)
+    # .save()
 
 
 if __name__ == '__main__':
-    if WANDB:
-        wandb.init(project="spectral_cluster", entity="tb5zhh")
-    if len(sys.argv) == 1:
-        main((0, 1))
-    else:
-        main((int(sys.argv[1]), int(sys.argv[2])))
-    if WANDB:
-        print(wandb.run.name)
+    main('/home/aidrive/tb5zhh/3d_scene_understand/SUField/data/scannetv2/scans/scene0001_00/scene0001_00_vh_clean_2.labels.ply')
 
+# %%
 
-VALID_CLASS_IDS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39)
-VALID_CLASS_IDS = list(VALID_CLASS_IDS)
+# if __name__ == '__main__':
+#     if WANDB:
+#         wandb.init(project="spectral_cluster", entity="tb5zhh")
+#     if len(sys.argv) == 1:
+#         main((0, 1))
+#     else:
+#         main((int(sys.argv[1]), int(sys.argv[2])))
+#     if WANDB:
+#         print(wandb.run.name)
 
-def collect():
-    """collect results from mid_Is_x.npy and mid_Os_x.npy"""
-    Is = np.zeros((4, 41))
-    Os = np.zeros((4, 41))
-    for i in range(8):
-        with open(f'another_mid_Is_{i}.npy', 'rb') as f:
-            Is += np.load(f)
-        with open(f'another_mid_Os_{i}.npy', 'rb') as f:
-            Os += np.load(f)
-    with open('tmp.out', 'w') as f:
-        for i in (Is / (Os + 1e-10))[:, VALID_CLASS_IDS]:
-            for j in i:
-                print(j, end='\t', file=f)
-            print(file=f)
-    print((Is / (Os + 1e-10))[:, VALID_CLASS_IDS].mean(axis=1))
+# VALID_CLASS_IDS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39)
+# VALID_CLASS_IDS = list(VALID_CLASS_IDS)
 
+# def collect():
+#     """collect results from mid_Is_x.npy and mid_Os_x.npy"""
+#     Is = np.zeros((4, 41))
+#     Os = np.zeros((4, 41))
+#     for i in range(8):
+#         with open(f'another_mid_Is_{i}.npy', 'rb') as f:
+#             Is += np.load(f)
+#         with open(f'another_mid_Os_{i}.npy', 'rb') as f:
+#             Os += np.load(f)
+#     with open('tmp.out', 'w') as f:
+#         for i in (Is / (Os + 1e-10))[:, VALID_CLASS_IDS]:
+#             for j in i:
+#                 print(j, end='\t', file=f)
+#             print(file=f)
+#     print((Is / (Os + 1e-10))[:, VALID_CLASS_IDS].mean(axis=1))
 
 # %%
