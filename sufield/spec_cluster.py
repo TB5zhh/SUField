@@ -17,7 +17,16 @@ from tqdm import tqdm
 
 from .utils import count_time, log, timer
 from .config import SCANNET_COLOR_MAP, VALID_CLASS_IDS, TRAIN_IDS
-
+# TRAIN_IDS = [
+# "scene0630_00",
+# "scene0630_01",
+# "scene0630_02",
+# "scene0630_03",
+# "scene0385_02",
+# "scene0000_00",
+# "scene0000_01",
+# "scene0000_02",
+# ]
 patch_sklearn()
 from sklearn.cluster import KMeans
 from IPython import embed
@@ -26,9 +35,10 @@ from random import randint
 CONF_FILE = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/conf.ini'
 DATA_BASE_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/data/scannetv2/scans'
 SAMPLE_IDS_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SpecCluster/tbw/indices'
-#SAVE_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/results'
-SAVE_DIR = '/mnt/air-01-data2/tbw'
+SAVE_DIR = '/home/aidrive/tb5zhh/3d_scene_understand/SUField/results'
+# SAVE_DIR = '/mnt/air-01-data2/tbw'
 QUIET = True
+WANDB = True
 """
 Terminology:
 ply_name (scan_id): scene0000_00
@@ -108,8 +118,8 @@ class SpecClusterPipeline():
         return self
 
     @timer
-    @log(QUIET)
-    def downsample(self):
+    @log(False)
+    def downsample(self, dstarget = 8000):
         assert hasattr(self, 'full_plydata') is not None
         print('start')
         # TODO restore color of the meshes
@@ -121,7 +131,7 @@ class SpecClusterPipeline():
 
         meshset.apply_filter(
             'simplification_quadric_edge_collapse_decimation',
-            targetperc=16000 / len(self.full_plydata['vertex']),
+            targetperc= dstarget / len(self.full_plydata['vertex']),
             autoclean=True,
             qualitythr=0.8,
         )
@@ -290,7 +300,7 @@ def main(arg):
     # total_sum = 0
     # l = sorted(os.listdir(DATA_BASE_DIR))
     l = TRAIN_IDS
-    step = len(l) // all + 1
+    step = (len(l) + all - 1) // all
     start = idx * step
     end = (idx + 1) * step
     Is = np.zeros((4, 41))
@@ -305,24 +315,25 @@ def main(arg):
                 print(f"no {scan_id}")
                 continue
             with count_time(f"{scan_id} part 1"):
-                pipeline.downsample().calc_geod_dist().calc_ang_dist(abs_inv=True).calc_aff_mat(ratio=0.6).calc_embedding(feature=110).setup_mapping()
+                pipeline.downsample(dstarget=8000).calc_geod_dist().calc_ang_dist(abs_inv=True).calc_aff_mat(ratio=0.6).calc_embedding(feature=50).setup_mapping()
             for cidx, shot in enumerate((20, 50, 100, 200)):
                 with count_time(f"{scan_id} part 2 {shot}"):
-                    pipeline.knn_cluster(shot).evaluate_cluster_result_iou()
+                    pipeline.knn_cluster(shot).evaluate_cluster_result_iou().save(shot)
                     Is[cidx] += pipeline.Is
                     Os[cidx] += pipeline.Os
-
+                if WANDB:
+                    wandb.log({
+                        f"per_scene_iou_mean_{shot}": (pipeline.Is / (pipeline.Os + 1e-10)).mean(),
+                        f"per_scene_iou_{shot}": (pipeline.Is / (pipeline.Os + 1e-10)),
+                    })
+            if WANDB:
                 wandb.log({
-                    f"per_scene_iou_mean_{shot}": (pipeline.Is / (pipeline.Os + 1e-10)).mean(),
-                    f"per_scene_iou_{shot}": (pipeline.Is / (pipeline.Os + 1e-10)),
+                    "iou_mean_20": (Is / (Os + 1e-10)).mean(axis=1)[0],
+                    "iou_mean_50": (Is / (Os + 1e-10)).mean(axis=1)[1],
+                    "iou_mean_100": (Is / (Os + 1e-10)).mean(axis=1)[2],
+                    "iou_mean_200": (Is / (Os + 1e-10)).mean(axis=1)[3],
+                    "iou": (Is / (Os + 1e-10)),
                 })
-            wandb.log({
-                "iou_mean_20": (Is / (Os + 1e-10)).mean(axis=1)[0],
-                "iou_mean_50": (Is / (Os + 1e-10)).mean(axis=1)[1],
-                "iou_mean_100": (Is / (Os + 1e-10)).mean(axis=1)[2],
-                "iou_mean_200": (Is / (Os + 1e-10)).mean(axis=1)[3],
-                "iou": (Is / (Os + 1e-10)),
-            })
             print(f"{(Is / (Os + 1e-10)).mean(axis=1) * 100}")
             if (idx + 1) % 50 == 0:
                 os.system(f'/home/aidrive/tb5zhh/utils/CUDA-Setup-CN/slack/send.sh {idx}: {eidx}/{end-start} {pipeline.scan_id}')
@@ -337,12 +348,14 @@ def main(arg):
 
 
 if __name__ == '__main__':
-    wandb.init(project="spectral_cluster", entity="tb5zhh")
+    if WANDB:
+        wandb.init(project="spectral_cluster", entity="tb5zhh")
     if len(sys.argv) == 1:
         main((0, 1))
     else:
         main((int(sys.argv[1]), int(sys.argv[2])))
-    print(wandb.run.name)
+    if WANDB:
+        print(wandb.run.name)
 
 
 VALID_CLASS_IDS = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 24, 28, 33, 34, 36, 39)

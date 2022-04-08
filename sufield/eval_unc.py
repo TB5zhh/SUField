@@ -39,31 +39,43 @@ for ply_name in tqdm(TRAIN_IDS, desc='load'):
 
         # records[idx][0] = np.hstack((records[idx][0], spec_conf))
         # records[idx][1] = np.hstack((records[idx][1], unc_conf))
-good_unc_stat = [torch.as_tensor(np.hstack(good_unc_distances[i])) for i in range(NUM_CLS)]
-bad1_unc_stat = [torch.as_tensor(np.hstack(bad1_unc_distances[i])) for i in range(NUM_CLS)]
-bad2_unc_stat = [torch.as_tensor(np.hstack(bad2_unc_distances[i])) for i in range(NUM_CLS)]
 
 from .tools import render_fit
 
-for idx in range(20):
-    l = [
-        (good_unc_stat[idx], 'good'),
-        (torch.hstack((bad1_unc_stat[idx], bad2_unc_stat[idx])), 'bad'),
-        (bad1_unc_stat[idx], 'bad1'),
-        (bad2_unc_stat[idx], 'bad2'),
-    ]
-    for item, name in l:
-        print(idx, name)
-        try:
-            render_fit(item, [], bins=500, save=f'{idx}-{name}.png')
-            print(f'amount: {len(item)}')
-            print(f'mean: {item.mean().item()}')
-            print(f'var: {item.var().item()}')
-            print(f'std: {item.std().item()}')
-            print(f'median: {item.median().item()}')
-            print(f'maximum: {item.max().item()}')
-            print(f'minimum: {item.min().item()}')
-        except:
-            print('warning: error')
-            pass
+good = []
+bad = []
+for i in range(NUM_CLS):
+    good.append(good_unc_distances[i])
+    bad.append(bad1_unc_distances[i])
+    bad.append(bad2_unc_distances[i])
+
+good = torch.as_tensor(np.hstack(good))
+bad = torch.as_tensor(np.hstack(bad))
+render_fit(good, [], bins=500)
+render_fit(bad, [], bins=500)
+
+# good_unc_stat = [torch.as_tensor(np.hstack(good_unc_distances[i])) for i in range(NUM_CLS)]
+# bad1_unc_stat = [torch.as_tensor(np.hstack(bad1_unc_distances[i])) for i in range(NUM_CLS)]
+# bad2_unc_stat = [torch.as_tensor(np.hstack(bad2_unc_distances[i])) for i in range(NUM_CLS)]
+# for idx in range(20):
+#     l = [
+#         (good_unc_stat[idx], 'good'),
+#         (torch.hstack((bad1_unc_stat[idx], bad2_unc_stat[idx])), 'bad'),
+#         (bad1_unc_stat[idx], 'bad1'),
+#         (bad2_unc_stat[idx], 'bad2'),
+#     ]
+#     for item, name in l:
+#         print(idx, name)
+#         try:
+#             render_fit(item, [], bins=500, save=f'{idx}-{name}.png')
+#             print(f'amount: {len(item)}')
+#             print(f'mean: {item.mean().item()}')
+#             print(f'var: {item.var().item()}')
+#             print(f'std: {item.std().item()}')
+#             print(f'median: {item.median().item()}')
+#             print(f'maximum: {item.max().item()}')
+#             print(f'minimum: {item.min().item()}')
+#         except:
+#             print('warning: error')
+#             pass
 # %%

@@ -23,7 +23,7 @@ ORIGIN_PATH = '/home/aidrive/tb5zhh/3d_scene_understand/data/full_mesh/train'
 gen_base_path = lambda s: f'/home/aidrive/tb5zhh/3d_scene_understand/data/{s}/train'
 SPEC_DATA_PATH = 'results/spec_predictions'
 FIT_RESULT_PATH = 'results/fitting'
-GENERATE_PATH = 'results/generate_datasets'
+GENERATE_PATH = 'results_0223/generate_datasets'
 NUM_CLS = 20
 
 
@@ -493,36 +493,37 @@ class FitRunner():
 # if __name__ == '__main__':
 # a = FitRunner(100, debug=False).validate_render()
 # a = FitRunner(20, debug=False).load().fit(update=True, render=True, init_spec=[(10, 10), (2, 2)], fitted_cls=list(range(NUM_CLS)))
-# a = FitRunner(50, debug=False).load().fit(update=False, render=True, init_spec=[(10, 8), (10, 10)], fitted_cls=(10, 11, 16, 17), part=True)
+# a = FitRunner(20, debug=False).load().fit(cache=False, update=True, render=True, init_spec=[(10, 8), (10, 10)], fitted_cls=list(range(NUM_CLS)), part=False) # works well! except for 20 spec
+a = FitRunner(20, debug=False).load().fit(cache=False, update=True, render=True, init_spec=[(8, 2), (2, 10)], fitted_cls=[10], part=True)
 # a = FitRunner(50, debug=False).load().fit().generate()
 
-# a.generate().validate_render()
+a.generate().validate_render()
 # a.load().fit()
 
 
-# %%
-def draw(t):
-    n_bins = 400
-    width = 1 / n_bins
-    fig = plt.figure(dpi=400)
-    x = [i * 1 / n_bins for i in range(n_bins)]
-    y = torch.histc(torch.as_tensor(t), bins=n_bins, min=0, max=1)
-    ax = fig.add_subplot(1, 1, 1)
-    ax.bar(x, y, width=width)
-    plt.show()
+# # %%
+# def draw(t):
+#     n_bins = 400
+#     width = 1 / n_bins
+#     fig = plt.figure(dpi=400)
+#     x = [i * 1 / n_bins for i in range(n_bins)]
+#     y = torch.histc(torch.as_tensor(t), bins=n_bins, min=0, max=1)
+#     ax = fig.add_subplot(1, 1, 1)
+#     ax.bar(x, y, width=width)
+#     plt.show()
 
 
-a = FitRunner(200, debug=False).unc_label_bins()
-draw(a.correct_ds)
-draw(a.incorrect_ds)
-a = FitRunner(100, debug=False).unc_label_bins()
-draw(a.correct_ds)
-draw(a.incorrect_ds)
-a = FitRunner(50, debug=False).unc_label_bins()
-draw(a.correct_ds)
-draw(a.incorrect_ds)
-a = FitRunner(20, debug=False).unc_label_bins()
-draw(a.correct_ds)
-draw(a.incorrect_ds)
+# a = FitRunner(200, debug=False).unc_label_bins()
+# draw(a.correct_ds)
+# draw(a.incorrect_ds)
+# a = FitRunner(100, debug=False).unc_label_bins()
+# draw(a.correct_ds)
+# draw(a.incorrect_ds)
+# a = FitRunner(50, debug=False).unc_label_bins()
+# draw(a.correct_ds)
+# draw(a.incorrect_ds)
+# a = FitRunner(20, debug=False).unc_label_bins()
+# draw(a.correct_ds)
+# draw(a.incorrect_ds)
 
 # %%
