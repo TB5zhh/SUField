@@ -144,7 +144,7 @@ class SpecClusterPipeline():
         while len(self.sample_ids) < count:
             while True:
                 drawn = randint(0, len(self.full_plydata['vertex']) - 1)
-                if drawn not in self.sample_ids:
+                if drawn not in self.sample_ids and self.full_plydata['vertex'][drawn]['label'] != 255:
                     self.sample_ids.append(drawn)
                     break
         return self
@@ -340,8 +340,9 @@ def main(scan_path, output_dir='debug', shot=200):
     # .save()
 
 
+import sys
 if __name__ == '__main__':
-    main('/home/aidrive/tb5zhh/3d_scene_understand/SUField/data/scannetv2/scans/scene0001_00/scene0001_00_vh_clean_2.labels.ply')
+    main(sys.argv[1], sys.argv[2])
 
 # %%
 
