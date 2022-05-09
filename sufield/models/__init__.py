@@ -1,4 +1,3 @@
-# from sufield.models.trilateral_crf import TrilateralCRF
 from . import res16unet, resunet
 
 MODELS = []
