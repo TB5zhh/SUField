@@ -1,8 +1,7 @@
 import torch.nn as nn
-
-from .common import ConvType, NormType, get_norm, conv
-
 from MinkowskiEngine import MinkowskiReLU
+
+from .common import ConvType, NormType, conv, get_norm
 
 
 class BasicBlockBase(nn.Module):

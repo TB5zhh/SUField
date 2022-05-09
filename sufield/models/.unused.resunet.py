@@ -1,12 +1,11 @@
-from sufield.models.resnet import ResNetBase, get_norm
-from sufield.models.modules.common import ConvType, NormType, conv, conv_tr
-from sufield.models.modules.resnet_block import BasicBlock, BasicBlockINBN, Bottleneck
-
-import torch.nn as nn
-
 import MinkowskiEngine as ME
-from MinkowskiEngine import MinkowskiReLU
 import MinkowskiEngine.MinkowskiOps as me
+import torch.nn as nn
+from MinkowskiEngine import MinkowskiReLU
+
+from .modules.common import ConvType, NormType, conv, conv_tr
+from .modules.resnet_block import BasicBlock, BasicBlockINBN, Bottleneck
+from .resnet import ResNetBase, get_norm
 
 
 class MinkUNetBase(ResNetBase):
@@ -45,7 +44,6 @@ class MinkUNetBase(ResNetBase):
                               dilation=1,
                               conv_type=self.NON_BLOCK_CONV_TYPE,
                               D=D)
-
         self.bn1 = get_norm(self.NORM_TYPE, self.PLANES[0], D, bn_momentum=bn_momentum)
         self.block1 = self._make_layer(self.BLOCK, self.PLANES[0], self.LAYERS[0], dilation=dilations[0], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
 
@@ -57,6 +55,7 @@ class MinkUNetBase(ResNetBase):
                               conv_type=self.NON_BLOCK_CONV_TYPE,
                               D=D)
         self.bn2 = get_norm(self.NORM_TYPE, self.inplanes, D, bn_momentum=bn_momentum)
+
         self.block2 = self._make_layer(self.BLOCK, self.PLANES[1], self.LAYERS[1], dilation=dilations[1], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
 
         self.conv3p2s2 = conv(self.inplanes,
@@ -67,6 +66,7 @@ class MinkUNetBase(ResNetBase):
                               conv_type=self.NON_BLOCK_CONV_TYPE,
                               D=D)
         self.bn3 = get_norm(self.NORM_TYPE, self.inplanes, D, bn_momentum=bn_momentum)
+
         self.block3 = self._make_layer(self.BLOCK, self.PLANES[2], self.LAYERS[2], dilation=dilations[2], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
 
         self.conv4p4s2 = conv(self.inplanes,
@@ -77,7 +77,9 @@ class MinkUNetBase(ResNetBase):
                               conv_type=self.NON_BLOCK_CONV_TYPE,
                               D=D)
         self.bn4 = get_norm(self.NORM_TYPE, self.inplanes, D, bn_momentum=bn_momentum)
+
         self.block4 = self._make_layer(self.BLOCK, self.PLANES[3], self.LAYERS[3], dilation=dilations[3], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
+
         self.convtr4p8s2 = conv_tr(self.inplanes,
                                    self.PLANES[4],
                                    kernel_size=space_n_time_m(2, 1),
@@ -90,6 +92,7 @@ class MinkUNetBase(ResNetBase):
 
         self.inplanes = self.PLANES[4] + self.PLANES[2] * self.BLOCK.expansion
         self.block5 = self._make_layer(self.BLOCK, self.PLANES[4], self.LAYERS[4], dilation=dilations[4], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
+
         self.convtr5p4s2 = conv_tr(self.inplanes,
                                    self.PLANES[5],
                                    kernel_size=space_n_time_m(2, 1),
@@ -102,6 +105,7 @@ class MinkUNetBase(ResNetBase):
 
         self.inplanes = self.PLANES[5] + self.PLANES[1] * self.BLOCK.expansion
         self.block6 = self._make_layer(self.BLOCK, self.PLANES[5], self.LAYERS[5], dilation=dilations[5], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
+
         self.convtr6p2s2 = conv_tr(self.inplanes,
                                    self.PLANES[6],
                                    kernel_size=space_n_time_m(2, 1),
@@ -113,8 +117,12 @@ class MinkUNetBase(ResNetBase):
         self.bntr6 = get_norm(self.NORM_TYPE, self.PLANES[6], D, bn_momentum=bn_momentum)
         self.relu = MinkowskiReLU(inplace=True)
 
-        self.final = nn.Sequential(conv(self.PLANES[6] + self.PLANES[0] * self.BLOCK.expansion, 512, kernel_size=1, stride=1, dilation=1, bias=False, D=D),
-                                   ME.MinkowskiBatchNorm(512), ME.MinkowskiReLU(), conv(512, out_channels, kernel_size=1, stride=1, dilation=1, bias=True, D=D))
+        self.final = nn.Sequential(
+            conv(self.PLANES[6] + self.PLANES[0] * self.BLOCK.expansion, 512, kernel_size=1, stride=1, dilation=1, bias=False, D=D),
+            ME.MinkowskiBatchNorm(512),
+            ME.MinkowskiReLU(),
+            conv(512, out_channels, kernel_size=1, stride=1, dilation=1, bias=True, D=D),
+        )
 
     def forward(self, x):
         out = self.conv1p1s1(x)
@@ -139,7 +147,6 @@ class MinkUNetBase(ResNetBase):
         out = self.bn4(out)
         out = self.relu(out)
 
-        # pixel_dist=8
         out = self.block4(out)
 
         out = self.convtr4p8s2(out)
@@ -214,12 +221,16 @@ class ResUNet34E(ResUNet34):
 class ResUNet34F(ResUNet34):
     INIT_DIM = 32
     PLANES = (32, 64, 128, 256, 128, 64, 32)
+
+
 class MinkUNet34(MinkUNetBase):
     BLOCK = BasicBlock
     LAYERS = (2, 3, 4, 6, 2, 2, 2, 2)
 
+
 class MinkUNet34C(MinkUNet34):
     PLANES = (32, 64, 128, 256, 256, 128, 96, 96)
+
 
 class MinkUNetHyper(MinkUNetBase):
     BLOCK = None

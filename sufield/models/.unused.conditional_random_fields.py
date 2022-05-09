@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-from MinkowskiEngine import (MinkowskiConvolution, MinkowskiConvolutionFunction, SparseTensor)
+from MinkowskiEngine import (MinkowskiConvolution,
+                             MinkowskiConvolutionFunction, SparseTensor)
 from MinkowskiEngine import convert_region_type as me_convert_region_type
 from MinkowskiEngine import convert_to_int_tensor
 from torch.autograd import Variable

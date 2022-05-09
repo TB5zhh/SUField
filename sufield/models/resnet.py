@@ -1,9 +1,8 @@
+import MinkowskiEngine as ME
 import torch.nn as nn
 
-import MinkowskiEngine as ME
-
 from .model import Model
-from .modules.common import ConvType, NormType, get_norm, conv, sum_pool
+from .modules.common import ConvType, NormType, conv, get_norm, sum_pool
 from .modules.resnet_block import BasicBlock, Bottleneck
 
 
@@ -16,16 +15,16 @@ class ResNetBase(Model):
     HAS_LAST_BLOCK = False
     CONV_TYPE = ConvType.HYPER_CUBE
 
-    def __init__(self, in_channels, out_channels, config, D=3, **kwargs):
+    def __init__(self, in_channels, out_channels, dilations=[1, 1, 1, 1], bn_momentum=0.02, conv1_kernel_size=5, D=3, **kwargs):
         assert self.BLOCK is not None
         assert self.OUT_PIXEL_DIST > 0
 
-        super(ResNetBase, self).__init__(in_channels, out_channels, config, D, **kwargs)
+        super(ResNetBase, self).__init__(in_channels, out_channels, D, **kwargs)
 
-        self.network_initialization(in_channels, out_channels, config, D)
+        self.network_initialization(in_channels, out_channels, dilations, bn_momentum, conv1_kernel_size, D)
         self.weight_initialization()
 
-    def network_initialization(self, in_channels, out_channels, config, D):
+    def network_initialization(self, in_channels, out_channels, dilations, bn_momentum, conv1_kernel_size, D):
 
         def space_n_time_m(n, m):
             return n if D == 3 else [n, n, n, m]
@@ -33,10 +32,8 @@ class ResNetBase(Model):
         if D == 4:
             self.OUT_PIXEL_DIST = space_n_time_m(self.OUT_PIXEL_DIST, 1)
 
-        dilations = config.dilations
-        bn_momentum = config.bn_momentum
         self.inplanes = self.INIT_DIM
-        self.conv1 = conv(in_channels, self.inplanes, kernel_size=space_n_time_m(config['Conv1KernelSize'], 1), stride=1, D=D)
+        self.conv1 = conv(in_channels, self.inplanes, kernel_size=space_n_time_m(conv1_kernel_size, 1), stride=1, D=D)
 
         self.bn1 = get_norm(NormType.BATCH_NORM, self.inplanes, D=self.D, bn_momentum=bn_momentum)
         self.relu = ME.MinkowskiReLU(inplace=True)
@@ -114,8 +111,8 @@ class STResNetBase(ResNetBase):
 
     CONV_TYPE = ConvType.SPATIAL_HYPER_CUBE_TEMPORAL_HYPER_CROSS
 
-    def __init__(self, in_channels, out_channels, config, D=4, **kwargs):
-        super(STResNetBase, self).__init__(in_channels, out_channels, config, D, **kwargs)
+    def __init__(self, in_channels, out_channels, D=4, **kwargs):
+        super(STResNetBase, self).__init__(in_channels, out_channels, D, **kwargs)
 
 
 class STResNet14(STResNetBase, ResNet14):

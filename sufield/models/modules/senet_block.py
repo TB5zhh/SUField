@@ -1,9 +1,8 @@
+import MinkowskiEngine as ME
 import torch.nn as nn
 
-import MinkowskiEngine as ME
-
-from models.modules.common import ConvType, NormType
-from models.modules.resnet_block import BasicBlock, Bottleneck
+from .common import ConvType, NormType
+from .resnet_block import BasicBlock, Bottleneck
 
 
 class SELayer(nn.Module):

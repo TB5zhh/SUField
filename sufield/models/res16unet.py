@@ -1,14 +1,15 @@
-from .resnet import ResNetBase, get_norm
-from .modules.common import ConvType, NormType, conv, conv_tr
-from .modules.resnet_block import BasicBlock, Bottleneck
-import torch.nn as nn
-from MinkowskiEngine import MinkowskiReLU
-import MinkowskiEngine.MinkowskiOps as me
-import MinkowskiEngine as ME
-
 import inspect
 
-# FIXME should not pass config directly into this module
+import MinkowskiEngine as ME
+import MinkowskiEngine.MinkowskiOps as me
+import torch.nn as nn
+from MinkowskiEngine import MinkowskiReLU
+
+from .modules.common import ConvType, NormType, conv, conv_tr
+from .modules.resnet_block import BasicBlock, Bottleneck
+from .resnet import ResNetBase, get_norm
+
+
 class Res16UNetBase(ResNetBase):
     BLOCK = None
     PLANES = (32, 64, 128, 256, 256, 256, 256, 256)
@@ -23,13 +24,13 @@ class Res16UNetBase(ResNetBase):
 
     # To use the model, must call initialize_coords before forward pass.
     # Once data is processed, call clear to reset the model before calling initialize_coords
-    def __init__(self, in_channels, out_channels, config, D=3, **kwargs):
-        super(Res16UNetBase, self).__init__(in_channels, out_channels, config, D)
+    def __init__(self, in_channels, out_channels, dilations=[1, 1, 1, 1], bn_momentum=0.02, conv1_kernel_size=5, feature_dimension=512, D=3, **kwargs):
+        self.feature_dimension = feature_dimension
+        super(Res16UNetBase, self).__init__(in_channels, out_channels, D)
 
-    def network_initialization(self, in_channels, out_channels, config, D):
+    def network_initialization(self, in_channels, out_channels, dilations, bn_momentum, conv1_kernel_size, D):
         # Setup net_metadata
         dilations = self.DILATIONS
-        bn_momentum = config.getfloat('BatchNormMomentum')
 
         def space_n_time_m(n, m):
             return n if D == 3 else [n, n, n, m]
@@ -37,24 +38,15 @@ class Res16UNetBase(ResNetBase):
         if D == 4:
             self.OUT_PIXEL_DIST = space_n_time_m(self.OUT_PIXEL_DIST, 1)
 
-        sizes = [20, 128, 256, config.getint('FeatureDimension')]
-        layers = []
-        for i in range(len(sizes) - 2):
-            layers.append(ME.MinkowskiLinear(sizes[i], sizes[i + 1], bias=False))
-            layers.append(ME.MinkowskiBatchNorm(sizes[i + 1]))
-            layers.append(ME.MinkowskiReLU(inplace=True))
-        layers.append(ME.MinkowskiLinear(sizes[-2], sizes[-1], bias=False))
-
         # Output of the first conv concated to conv6
         self.inplanes = self.INIT_DIM
         self.conv0p1s1 = conv(in_channels,
                               self.inplanes,
-                              kernel_size=space_n_time_m(config.getint('Conv1KernelSize'), 1),
+                              kernel_size=space_n_time_m(conv1_kernel_size, 1),
                               stride=1,
                               dilation=1,
                               conv_type=self.NON_BLOCK_CONV_TYPE,
                               D=D)
-
         self.bn0 = get_norm(self.NORM_TYPE, self.inplanes, D, bn_momentum=bn_momentum)
 
         self.conv1p1s2 = conv(self.inplanes,
@@ -65,6 +57,7 @@ class Res16UNetBase(ResNetBase):
                               conv_type=self.NON_BLOCK_CONV_TYPE,
                               D=D)
         self.bn1 = get_norm(self.NORM_TYPE, self.inplanes, D, bn_momentum=bn_momentum)
+
         self.block1 = self._make_layer(self.BLOCK, self.PLANES[0], self.LAYERS[0], dilation=dilations[0], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
 
         self.conv2p2s2 = conv(self.inplanes,
@@ -75,6 +68,7 @@ class Res16UNetBase(ResNetBase):
                               conv_type=self.NON_BLOCK_CONV_TYPE,
                               D=D)
         self.bn2 = get_norm(self.NORM_TYPE, self.inplanes, D, bn_momentum=bn_momentum)
+
         self.block2 = self._make_layer(self.BLOCK, self.PLANES[1], self.LAYERS[1], dilation=dilations[1], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
 
         self.conv3p4s2 = conv(self.inplanes,
@@ -85,6 +79,7 @@ class Res16UNetBase(ResNetBase):
                               conv_type=self.NON_BLOCK_CONV_TYPE,
                               D=D)
         self.bn3 = get_norm(self.NORM_TYPE, self.inplanes, D, bn_momentum=bn_momentum)
+
         self.block3 = self._make_layer(self.BLOCK, self.PLANES[2], self.LAYERS[2], dilation=dilations[2], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
 
         self.conv4p8s2 = conv(self.inplanes,
@@ -95,7 +90,9 @@ class Res16UNetBase(ResNetBase):
                               conv_type=self.NON_BLOCK_CONV_TYPE,
                               D=D)
         self.bn4 = get_norm(self.NORM_TYPE, self.inplanes, D, bn_momentum=bn_momentum)
+
         self.block4 = self._make_layer(self.BLOCK, self.PLANES[3], self.LAYERS[3], dilation=dilations[3], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
+
         self.convtr4p16s2 = conv_tr(self.inplanes,
                                     self.PLANES[4],
                                     kernel_size=space_n_time_m(2, 1),
@@ -108,6 +105,7 @@ class Res16UNetBase(ResNetBase):
 
         self.inplanes = self.PLANES[4] + self.PLANES[2] * self.BLOCK.expansion
         self.block5 = self._make_layer(self.BLOCK, self.PLANES[4], self.LAYERS[4], dilation=dilations[4], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
+
         self.convtr5p8s2 = conv_tr(self.inplanes,
                                    self.PLANES[5],
                                    kernel_size=space_n_time_m(2, 1),
@@ -120,6 +118,7 @@ class Res16UNetBase(ResNetBase):
 
         self.inplanes = self.PLANES[5] + self.PLANES[1] * self.BLOCK.expansion
         self.block6 = self._make_layer(self.BLOCK, self.PLANES[5], self.LAYERS[5], dilation=dilations[5], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
+
         self.convtr6p4s2 = conv_tr(self.inplanes,
                                    self.PLANES[6],
                                    kernel_size=space_n_time_m(2, 1),
@@ -132,6 +131,7 @@ class Res16UNetBase(ResNetBase):
 
         self.inplanes = self.PLANES[6] + self.PLANES[0] * self.BLOCK.expansion
         self.block7 = self._make_layer(self.BLOCK, self.PLANES[6], self.LAYERS[6], dilation=dilations[6], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
+
         self.convtr7p2s2 = conv_tr(self.inplanes,
                                    self.PLANES[7],
                                    kernel_size=space_n_time_m(2, 1),
@@ -145,8 +145,17 @@ class Res16UNetBase(ResNetBase):
         self.inplanes = self.PLANES[7] + self.INIT_DIM
         self.block8 = self._make_layer(self.BLOCK, self.PLANES[7], self.LAYERS[7], dilation=dilations[7], norm_type=self.NORM_TYPE, bn_momentum=bn_momentum)
 
-        self.final = conv(self.PLANES[7], out_channels, kernel_size=1, stride=1, bias=True, D=D)
-        self.projector = nn.Sequential(*layers)
+        self.final = nn.Sequential(
+            conv(self.PLANES[7], out_channels, kernel_size=1, stride=1, bias=True, D=D),
+            ME.MinkowskiLinear(20, 128, bias=False),
+            ME.MinkowskiBatchNorm(128),
+            ME.MinkowskiReLU(inplace=True),
+            ME.MinkowskiLinear(128, 256, bias=False),
+            ME.MinkowskiBatchNorm(256),
+            ME.MinkowskiReLU(inplace=True),
+            ME.MinkowskiLinear(256, self.feature_dimension, bias=False),
+        )
+
         self.relu = MinkowskiReLU(inplace=True)
 
     def forward(self, x):
@@ -157,25 +166,26 @@ class Res16UNetBase(ResNetBase):
         out = self.conv1p1s2(out_p1)
         out = self.bn1(out)
         out = self.relu(out)
+
         out_b1p2 = self.block1(out)
 
         out = self.conv2p2s2(out_b1p2)
         out = self.bn2(out)
         out = self.relu(out)
+
         out_b2p4 = self.block2(out)
 
         out = self.conv3p4s2(out_b2p4)
         out = self.bn3(out)
         out = self.relu(out)
+
         out_b3p8 = self.block3(out)
 
-        # pixel_dist=16
         out = self.conv4p8s2(out_b3p8)
         out = self.bn4(out)
         out = self.relu(out)
         out = self.block4(out)
 
-        # pixel_dist=8
         out = self.convtr4p16s2(out)
         out = self.bntr4(out)
         out = self.relu(out)
@@ -183,7 +193,6 @@ class Res16UNetBase(ResNetBase):
         out = me.cat(out, out_b3p8)
         out = self.block5(out)
 
-        # pixel_dist=4
         out = self.convtr5p8s2(out)
         out = self.bntr5(out)
         out = self.relu(out)
@@ -191,7 +200,6 @@ class Res16UNetBase(ResNetBase):
         out = me.cat(out, out_b2p4)
         out = self.block6(out)
 
-        # pixel_dist=2
         out = self.convtr6p4s2(out)
         out = self.bntr6(out)
         out = self.relu(out)
@@ -199,7 +207,6 @@ class Res16UNetBase(ResNetBase):
         out = me.cat(out, out_b1p2)
         out = self.block7(out)
 
-        # pixel_dist=1
         out = self.convtr7p2s2(out)
         out = self.bntr7(out)
         out = self.relu(out)
@@ -207,9 +214,7 @@ class Res16UNetBase(ResNetBase):
         out = me.cat(out, out_p1)
         out = self.block8(out)
 
-        out = self.final(out)
-        #return self.final(out)
-        return self.projector(out)
+        return self.final(out)
 
 
 class Res16UNet14(Res16UNetBase):
@@ -293,8 +298,8 @@ class STRes16UNetBase(Res16UNetBase):
 
     CONV_TYPE = ConvType.SPATIAL_HYPER_CUBE_TEMPORAL_HYPER_CROSS
 
-    def __init__(self, in_channels, out_channels, config, D=4, **kwargs):
-        super(STRes16UNetBase, self).__init__(in_channels, out_channels, config, D, **kwargs)
+    def __init__(self, in_channels, out_channels, D=4, **kwargs):
+        super(STRes16UNetBase, self).__init__(in_channels, out_channels, D, **kwargs)
 
 
 class STRes16UNet14(STRes16UNetBase, Res16UNet14):
