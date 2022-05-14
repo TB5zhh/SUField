@@ -7,6 +7,7 @@ conda create -n sufield python=3.8
 conda activate sufield
 
 # pytorch=1.10.0 cudatoolkit=11.3.1 torchvision=0.11.1
+# pytorch < 1.11
 conda install pytorch torchvision cudatoolkit -c pytorch
 # conda install pytorch=1.7.1 torchvision cudatoolkit=11.0 -c pytorch
 conda install scikit-learn 
