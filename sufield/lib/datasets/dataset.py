@@ -1,11 +1,10 @@
 import numpy as np
-import torch
 from plyfile import PlyData
 from torch.utils.data import Dataset
 
 from sufield.lib.visualize import dump_points_with_labels
 
-from .voxelizer import Voxelizer
+from . import transforms as t
 
 
 class FileListsDataset(Dataset):
@@ -61,18 +60,17 @@ class PLYPointCloudDataset(FileListsDataset):
         data = PlyData.read(data_path)
 
         # N * 3, float32
-        coords = torch.from_numpy(np.stack((data['vertex']['x'], data['vertex']['y'], data['vertex']['z']), axis=1))
+        coords = np.stack((data['vertex']['x'], data['vertex']['y'], data['vertex']['z']), axis=1)
 
         # N * 3, uint8
-        feats = torch.from_numpy(
-            np.stack((data['vertex']['red'], data['vertex']['green'], data['vertex']['blue']), axis=1))
+        feats = np.stack((data['vertex']['red'], data['vertex']['green'], data['vertex']['blue']), axis=1)
 
         ret = [coords, feats]
 
         if label_path is not None:
             labels = PlyData.read(label_path)
-            labels_data = torch.from_numpy(labels['vertex']['label'].astype(np.uint8))
-            ret.append(labels_data)
+            labels_data = labels['vertex']['label'].astype(np.uint8)
+            ret.append(np.asarray(labels_data))
         else:
             ret.append(None)
 
@@ -81,7 +79,7 @@ class PLYPointCloudDataset(FileListsDataset):
             if label_path is not None:
                 ret.append(label_path)
 
-        return ret
+        return tuple(ret)
 
 
 class ScanNetDataset(PLYPointCloudDataset):
@@ -120,21 +118,15 @@ class ScanNetVoxelizedDataset(ScanNetDataset):
         data_list_path: str,
         label_list_path: str = None,
         return_paths=False,
-        prevoxelized_transforms=None,
-        postpoxelized_transforms=None,
+        transforms=None,
     ) -> None:
         super().__init__(data_list_path, label_list_path, return_paths)
-        self.prevoxelized_transforms = prevoxelized_transforms
-        self.postvoxelized_transforms = postpoxelized_transforms
-        self.voxelizer = Voxelizer()
+        self.transforms = transforms
 
     def sample_loader(self, data_path, label_path=None):
         result = super().sample_loader(data_path, label_path)
-        if self.prevoxelized_transforms:
-            result = self.prevoxelized_transforms(*result)
-        result = self.voxelizer(*result)
-        if self.postvoxelized_transforms:
-            result = self.postvoxelized_transforms(*result)
+        if self.transforms:
+            result = self.transforms(*result)
         return result
 
 
@@ -142,10 +134,26 @@ from IPython import embed
 
 
 def test():
-    dataset = ScanNetVoxelizedDataset('/home/tb5zhh/SUField/datasets/ScanNetv2_train_data.txt',
-                                      '/home/tb5zhh/SUField/datasets/ScanNetv2_train_labels.txt', True)
+    dataset = ScanNetVoxelizedDataset(
+        '/home/tb5zhh/SUField/datasets/ScanNetv2_train_data.txt',
+        '/home/tb5zhh/SUField/datasets/ScanNetv2_train_labels.txt',
+        return_paths=True,
+        transforms=t.Compose([
+            # t.ElasticDistortion(((0.2, 0.4), (0.8, 1.6))),
+            # t.RandomRotation(((0,0),(0,0),(np.pi/2, np.pi/2))),
+            # t.RandomScaling(),
+            # t.NonNegativeTranslation()
+            t.Voxelize(),
+            # t.RandomDropout(0.5, 1),
+            t.RandomHorizontalFlip('z'),
+            # t.ChromaticAutoContrast(),
+            # t.ChromaticTranslation(0.1),
+            # t.ChromaticJitter(0.05),
+            # t.HueSaturationTranslation(0.5, 0.2)
+        ]),
+    )
     result = dataset[0]
-    dump_points_with_labels(result[0], result[2], 'text.txt')
+    dump_points_with_labels(result[0], result[2], 'voxelized.txt')
 
 
 if __name__ == '__main__':
