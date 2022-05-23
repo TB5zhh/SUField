@@ -4,6 +4,8 @@ from pyparsing import col
 from torch import optim
 from torch.utils.data import DataLoader
 
+from sufield.models.viewpoint_bottleneck import ViewpointBottleneck
+
 from .datasets import get_transform
 from .datasets.dataset import ScanNetVoxelizedDataset
 from .datasets.transforms import cf_collate_fn_factory
@@ -41,7 +43,8 @@ def train(args):
     """
     Models
     """
-    
+    model = ViewpointBottleneck(None, None, None)
+    model.cuda()
 
     
     """
@@ -49,7 +52,7 @@ def train(args):
     """
     optimizer_args = args['optimizer']
     if optimizer_args['type'] == 'SGD':
-        optimizer = optim.SGD(params,
+        optimizer = optim.SGD(model.parameters(),
                               lr=optimizer_args['learning_rate'],
                               momentum=optimizer_args['SGD']['momentum'],
                               dampening=optimizer_args['SGD']['dampening'],
@@ -72,3 +75,4 @@ def train(args):
     while True:
         iter_timer.tic()
         # coords, feats, labels, *_ =
+        

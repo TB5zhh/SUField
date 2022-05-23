@@ -1,6 +1,5 @@
 import torch.nn as nn
 from MinkowskiEngine import MinkowskiReLU
-
 from .common import ConvType, NormType, conv, get_norm
 
 
@@ -8,7 +7,7 @@ class BasicBlockBase(nn.Module):
     expansion = 1
     NORM_TYPE = NormType.BATCH_NORM
 
-    def __init__(self, inplanes, planes, stride=1, dilation=1, downsample=None, conv_type=ConvType.HYPER_CUBE, bn_momentum=0.1, D=3):
+    def __init__(self, inplanes, planes, stride=1, dilation=1, downsample=None, conv_type=ConvType.HYPERCUBE, bn_momentum=0.1, D=3):
         super(BasicBlockBase, self).__init__()
 
         self.conv1 = conv(inplanes, planes, kernel_size=3, stride=stride, dilation=dilation, conv_type=conv_type, D=D)
@@ -53,7 +52,7 @@ class BottleneckBase(nn.Module):
     expansion = 4
     NORM_TYPE = NormType.BATCH_NORM
 
-    def __init__(self, inplanes, planes, stride=1, dilation=1, downsample=None, conv_type=ConvType.HYPER_CUBE, bn_momentum=0.1, D=3):
+    def __init__(self, inplanes, planes, stride=1, dilation=1, downsample=None, conv_type=ConvType.HYPERCUBE, bn_momentum=0.1, D=3):
         super(BottleneckBase, self).__init__()
         self.conv1 = conv(inplanes, planes, kernel_size=1, D=D)
         self.norm1 = get_norm(self.NORM_TYPE, planes, D, bn_momentum=bn_momentum)

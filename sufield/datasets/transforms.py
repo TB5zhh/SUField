@@ -335,7 +335,17 @@ class RandomRotation(AbstractTransform):
             coords = coords @ rotation_mat.T
         return coords, feats, labels
 
-
+class ToSparseTensor(AbstractTransform):
+    def __init__(self) -> None:
+        ...
+    
+    def __call__(self, coords, feats, labels):
+        tensor_field = ME.TensorField(
+            coordinates=coords.int().to(coords.device),
+            features=feats.to(feats.device),
+            quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE,
+        ).sparse()
+        return tensor_field, None, labels
 
 
 class RandomScaling(AbstractTransform):

@@ -7,6 +7,18 @@ from sufield.lib.visualize import dump_points_with_labels
 from . import transforms as t
 
 
+class ToyDataset(Dataset):
+
+    def __init__(self, length=100) -> None:
+        self.len = length
+
+    def __getitem__(self, index):
+        return index
+
+    def __len__(self):
+        return self.len
+
+
 class FileListsDataset(Dataset):
 
     def __init__(self, data_list_path: str, label_list_path: str = None) -> None:
@@ -86,10 +98,9 @@ class ScanNetDataset(PLYPointCloudDataset):
     This dataset maps original label ids to label indices
     """
     TOTAL_CLS = 41
-    VALID_LABEL_IDS = [(1, "wall"), (2, "floor"), (3, "cabinet"), (4, "bed"), (5, "chair"), (6, "sofa"), (7, "table"),
-                       (8, "door"), (9, "window"), (10, "bookshelf"), (11, "picture"), (12, "counter"), (14, "desk"),
-                       (16, "curtain"), (24, "refridgerator"), (28, "shower curtain"), (33, "toilet"), (34, "sink"),
-                       (36, "bathtub"), (39, "otherfurniture")]
+    VALID_LABEL_IDS = [(1, "wall"), (2, "floor"), (3, "cabinet"), (4, "bed"), (5, "chair"), (6, "sofa"), (7, "table"), (8, "door"), (9, "window"),
+                       (10, "bookshelf"), (11, "picture"), (12, "counter"), (14, "desk"), (16, "curtain"), (24, "refridgerator"), (28, "shower curtain"),
+                       (33, "toilet"), (34, "sink"), (36, "bathtub"), (39, "otherfurniture")]
 
     def __init__(self, data_list_path: str, label_list_path: str = None, return_paths=False) -> None:
         super().__init__(data_list_path, label_list_path, return_paths)
@@ -108,7 +119,6 @@ class ScanNetDataset(PLYPointCloudDataset):
             for class_id in range(self.TOTAL_CLS):
                 result[2][result[2] == class_id] = self.MAPPER[class_id]
         return result
-
 
 
 class ScanNetVoxelizedDataset(ScanNetDataset):
@@ -146,7 +156,7 @@ def test():
             # t.NonNegativeTranslation()
             # t.Voxelize(),
             # t.RandomDropout(0.5, 1),
-            t.RandomTranslation([(2,2),(2,2),(2,2)], 1),
+            t.RandomTranslation([(2, 2), (2, 2), (2, 2)], 1),
             # t.ChromaticAutoContrast(),
             # t.ChromaticTranslation(0.1),
             # t.ChromaticJitter(0.05),

@@ -1,9 +1,10 @@
-import MinkowskiEngine as ME
 import torch.nn as nn
 
-from .model import Model
-from .modules.common import ConvType, NormType, conv, get_norm, sum_pool
-from .modules.resnet_block import BasicBlock, Bottleneck
+import MinkowskiEngine as ME
+
+from models.model import Model
+from models.modules.common import ConvType, NormType, get_norm, conv, sum_pool
+from models.modules.resnet_block import BasicBlock, Bottleneck
 
 
 class ResNetBase(Model):
@@ -13,13 +14,13 @@ class ResNetBase(Model):
     PLANES = (64, 128, 256, 512)
     OUT_PIXEL_DIST = 32
     HAS_LAST_BLOCK = False
-    CONV_TYPE = ConvType.HYPER_CUBE
+    CONV_TYPE = ConvType.HYPERCUBE
 
-    def __init__(self, in_channels, out_channels, dilations=[1, 1, 1, 1], bn_momentum=0.02, conv1_kernel_size=5, D=3, **kwargs):
+    def __init__(self, in_channels, out_channels, dilations, bn_momentum, conv1_kernel_size=3, D=3):
         assert self.BLOCK is not None
         assert self.OUT_PIXEL_DIST > 0
 
-        super(ResNetBase, self).__init__(in_channels, out_channels, D, **kwargs)
+        super(ResNetBase, self).__init__(in_channels, out_channels, D)
 
         self.network_initialization(in_channels, out_channels, dilations, bn_momentum, conv1_kernel_size, D)
         self.weight_initialization()
@@ -105,55 +106,3 @@ class ResNet50(ResNetBase):
 class ResNet101(ResNetBase):
     BLOCK = Bottleneck
     LAYERS = (3, 4, 23, 3)
-
-
-class STResNetBase(ResNetBase):
-
-    CONV_TYPE = ConvType.SPATIAL_HYPER_CUBE_TEMPORAL_HYPER_CROSS
-
-    def __init__(self, in_channels, out_channels, D=4, **kwargs):
-        super(STResNetBase, self).__init__(in_channels, out_channels, D, **kwargs)
-
-
-class STResNet14(STResNetBase, ResNet14):
-    pass
-
-
-class STResNet18(STResNetBase, ResNet18):
-    pass
-
-
-class STResNet34(STResNetBase, ResNet34):
-    pass
-
-
-class STResNet50(STResNetBase, ResNet50):
-    pass
-
-
-class STResNet101(STResNetBase, ResNet101):
-    pass
-
-
-class STResTesseractNetBase(STResNetBase):
-    CONV_TYPE = ConvType.HYPER_CUBE
-
-
-class STResTesseractNet14(STResTesseractNetBase, STResNet14):
-    pass
-
-
-class STResTesseractNet18(STResTesseractNetBase, STResNet18):
-    pass
-
-
-class STResTesseractNet34(STResTesseractNetBase, STResNet34):
-    pass
-
-
-class STResTesseractNet50(STResTesseractNetBase, STResNet50):
-    pass
-
-
-class STResTesseractNet101(STResTesseractNetBase, STResNet101):
-    pass
