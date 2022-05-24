@@ -423,8 +423,9 @@ class cf_collate_fn_factory:
                          size so that the number of input coordinates is below limit_numpoints.
     """
 
-    def __init__(self, limit_numpoints):
+    def __init__(self, limit_numpoints, device='cuda'):
         self.limit_numpoints = limit_numpoints
+        self.device = device
 
     def __call__(self, list_data):
         coords_batch, feats_batch, labels_batch = [], [], []
@@ -432,13 +433,16 @@ class cf_collate_fn_factory:
         batch_id = 0
         batch_num_points = 0
         for batch_id, (coords, feats, labels, *_) in enumerate(list_data):
+            coords = coords.to(coords.device)
+            feats = feats.to(feats.device)
+            labels = labels.to(labels.device)
             num_points = coords.shape[0]
             batch_num_points += num_points
             if self.limit_numpoints is not None and batch_num_points > self.limit_numpoints:
                 num_full_points = sum(len(pack[0]) for pack in list_data)
                 num_full_batch_size = len(list_data)
                 logging.getLogger(__name__).warning(
-                    f'Cannot fit {num_full_points} points into'
+                    f'Cannot fit {num_full_points} points into '
                     f'{self.limit_numpoints} points limit. '
                     f'Truncating batch size at {batch_id} '
                     f'out of {num_full_batch_size} with {batch_num_points - num_points}.',)

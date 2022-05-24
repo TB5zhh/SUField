@@ -6,7 +6,7 @@ import torch.distributed as dist
 
 def _distributed_init(id, world_size, init_method, fn, args):
     dist.init_process_group(backend='nccl', init_method=init_method, world_size=world_size, rank=id)
-    dist.all_reduce_multigpu(torch.zeros(1).to(f"cuda:{id}"))
+    # dist.all_reduce_multigpu(torch.zeros(1).to(f"cuda:{id}"))
     try:
         fn(*args)
     finally:

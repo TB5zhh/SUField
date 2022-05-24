@@ -1,10 +1,14 @@
 from logging import getLogger
+from random import randint
+from typing import Generic, TypeVar
 import numpy as np
 import torch
 from plyfile import PlyData
 from torch.utils.data import Dataset
 
-from sufield.lib.visualize import dump_points_with_labels
+from sufield.lib.utils.distributed import get_rank
+
+from ..lib.visualize import dump_points_with_labels
 
 from . import transforms as t
 
@@ -21,9 +25,28 @@ class ToyDataset(Dataset):
         return self.len
 
 
+class BundledDataset(Dataset):
+
+    def __init__(self, bundle_path: str, **_) -> None:
+        super().__init__()
+        self.bundle = np.load(bundle_path, allow_pickle=True).item()
+        self.coords = self.bundle['coords']
+        self.feats = self.bundle['feats']
+        if 'labels' in self.bundle.keys():
+            self.labels = self.bundle['labels']
+        else:
+            self.labels = None
+
+    def __getitem__(self, index):
+        return torch.from_numpy(self.coords[index]), torch.from_numpy(self.feats[index]), torch.from_numpy(self.labels[index])
+
+    def __len__(self):
+        return self.bundle['size']
+
+
 class FileListsDataset(Dataset):
 
-    def __init__(self, data_list_path: str, label_list_path: str = None) -> None:
+    def __init__(self, data_list_path: str, label_list_path: str = None, **__) -> None:
         super().__init__()
         with open(data_list_path) as f:
             self.data_paths = [i.strip() for i in f.readlines()]
@@ -53,12 +76,7 @@ class FileListsDataset(Dataset):
 
 class PLYPointCloudDataset(FileListsDataset):
 
-    def __init__(
-        self,
-        data_list_path: str,
-        label_list_path: str = None,
-        return_paths=False,
-    ) -> None:
+    def __init__(self, data_list_path: str, label_list_path: str = None, return_paths=False, **__) -> None:
         super(PLYPointCloudDataset, self).__init__(data_list_path, label_list_path)
         self.return_paths = return_paths
 
@@ -93,9 +111,20 @@ class PLYPointCloudDataset(FileListsDataset):
                 ret.append(label_path)
 
         return tuple(ret)
+        
 
+class Dynamic(Dataset):
 
-class ScanNetDataset(PLYPointCloudDataset):
+    def __init__(self, cls, **kwargs) -> None:
+        self.base = cls(**kwargs)
+
+    def __getitem__(self, index):
+        return self.base.__getitem__(index)
+
+    def __len__(self):
+        return len(self.base)
+
+class ScanNet(Dynamic):
     """
     This dataset maps original label ids to label indices
     """
@@ -104,8 +133,8 @@ class ScanNetDataset(PLYPointCloudDataset):
                        (10, "bookshelf"), (11, "picture"), (12, "counter"), (14, "desk"), (16, "curtain"), (24, "refridgerator"), (28, "shower curtain"),
                        (33, "toilet"), (34, "sink"), (36, "bathtub"), (39, "otherfurniture")]
 
-    def __init__(self, data_list_path: str, label_list_path: str = None, return_paths=False) -> None:
-        super().__init__(data_list_path, label_list_path, return_paths)
+    def __init__(self, cls, **kwargs) -> None:
+        super().__init__(cls, **kwargs)
 
         # Define mapper from all labels to used labels
         # 1,2,3,5,6 -> 0,1,2,3,4
@@ -115,33 +144,25 @@ class ScanNetDataset(PLYPointCloudDataset):
             for class_idx in range(self.TOTAL_CLS)
         ]
 
-    def sample_loader(self, data_path, label_path=None):
-        result = super().sample_loader(data_path, label_path)
-        if self.label_paths is not None:
+    def __getitem__(self, index):
+        result = super().__getitem__(index)
+        if result[2] is not None:
             for class_id in range(self.TOTAL_CLS):
                 result[2][result[2] == class_id] = self.MAPPER[class_id]
         return result
 
 
-class ScanNetVoxelizedDataset(ScanNetDataset):
+# data_list_path: str, label_list_path: str = None, return_paths=False
+class ScanNetVoxelized(ScanNet):
 
-    def __init__(
-        self,
-        data_list_path: str,
-        label_list_path: str = None,
-        return_paths=False,
-        transforms=None,
-    ) -> None:
-        super().__init__(data_list_path, label_list_path, return_paths)
-        self.transforms = transforms
+    def __init__(self, cls, **kwargs) -> None:
+        super().__init__(cls, **kwargs)
+        self.transforms = kwargs['transforms']
 
-    def sample_loader(self, data_path, label_path=None):
-        getLogger().info(f'Load start')
-        result = super().sample_loader(data_path, label_path)
-        getLogger().info(f'Load completes, transform starts')
+    def __getitem__(self, index):
+        result = super().__getitem__(index)
         if self.transforms:
             result = self.transforms(*result)
-        getLogger().info(f'Transform completes')
         return result
 
 
@@ -149,9 +170,9 @@ from IPython import embed
 
 
 def test():
-    dataset = ScanNetVoxelizedDataset(
-        '/home/tb5zhh/SUField/datasets/ScanNetv2_train_data.txt',
-        '/home/tb5zhh/SUField/datasets/ScanNetv2_train_labels.txt',
+    dataset = ScanNetVoxelized()(
+        data_list_path='/home/tb5zhh/SUField/datasets/ScanNetv2_train_data.txt',
+        label_list_path='/home/tb5zhh/SUField/datasets/ScanNetv2_train_labels.txt',
         return_paths=True,
         transforms=t.Compose([
             t.ToTensor(),

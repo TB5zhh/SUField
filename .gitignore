@@ -10,3 +10,4 @@ checkpoints/
 .vscode/
 /tmp
 datasets/*.txt
+logs/

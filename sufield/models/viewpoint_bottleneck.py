@@ -19,7 +19,7 @@ class ViewpointBottleneck(nn.Module):
         self.encoder.final = nn.Identity()
         self.criterion = BarlowTwinsLoss()
         self.train_split_transform = t.SplitCompose(
-            sync_transform=[t.ToDevice(get_rank())],
+            sync_transform=[],
             random_transform=[
                 t.RandomRotation(),
                 t.RandomTranslation(),

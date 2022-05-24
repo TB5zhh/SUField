@@ -16,7 +16,7 @@ class BarlowTwinsLoss(nn.Module):
 
         x_l2 = x.pow(2).sum(0, keepdim=True).sqrt()
         y_l2 = y.pow(2).sum(0, keepdim=True).sqrt()
-        cov = cov / (x_l2.t() @ y_l2)
+        cov = cov / (x_l2.t() @ y_l2 + 1e-6)
 
         ret = (cov - torch.eye(cov.shape[0], device=cov.device)).pow(2)
         coef = self.coef * torch.ones_like(cov, device=cov.device) + (1 - self.coef) * torch.eye(cov.shape[0], device=cov.device)
