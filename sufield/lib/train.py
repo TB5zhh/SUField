@@ -1,24 +1,33 @@
+import torch
 import logging
-from pyparsing import col
 
+from pyparsing import col
+from sufield.datasets.sampler import DistributedInfSampler, InfSampler
 from torch import optim
 from torch.utils.data import DataLoader
+from torch.nn.parallel import DistributedDataParallel
 
-from sufield.models.viewpoint_bottleneck import ViewpointBottleneck
 
-from .datasets import get_transform
-from .datasets.dataset import ScanNetVoxelizedDataset
-from .datasets.transforms import cf_collate_fn_factory
-from .utils.distributed import get_rank, get_world_size
-from .utils.meters import AverageMeter, Timer
+from ..datasets import transforms as t
+from ..datasets import get_transform
+from ..datasets.dataset import ScanNetVoxelizedDataset
+from ..datasets.transforms import cf_collate_fn_factory
+from ..models.viewpoint_bottleneck import ViewpointBottleneck
+from .distributed_launch import run_distributed
+from .utils import get_args, get_rank, get_world_size, AverageMeter, Timer, setup_logger
+from .visualize import dump_points_with_labels
 
 
 def train(args):
     args = args['training']
     rank = get_rank()
+    torch.cuda.set_device(rank)
     world_size = get_world_size()
+    setup_logger(rank, 'test.log')
+    
     device = f"cuda:{rank}"
     logger = logging.getLogger(__name__)
+    logger.debug('Train func start')
     """
     Timers and Meters
     """
@@ -28,25 +37,25 @@ def train(args):
     """
     Dataset, Transforms and Dataloaders
     """
-    transforms = get_transform(args['transforms'])
+    transforms = t.Compose( get_transform(args['transforms']))
 
     dataset_args = args['dataset']
-    dataset = ScanNetVoxelizedDataset(dataset_args['data_list'],
-                                      dataset_args['label_list'],
-                                      return_paths=True,
-                                      transforms=transforms)
+    dataset = ScanNetVoxelizedDataset(dataset_args['data_list'], dataset_args['label_list'], return_paths=True, transforms=transforms)
 
     dataloader = DataLoader(dataset,
                             batch_size=args['batch_size'],
-                            num_workers=args['num_worker'],
-                            collate_fn=cf_collate_fn_factory(args['limit_numpoints']))
+                            num_workers=args['num_workers'],
+                            collate_fn=cf_collate_fn_factory(args['limit_numpoints']),
+                            sampler=DistributedInfSampler(dataset),
+                            pin_memory=True)
+    logger.debug('Dataset and dataloader init')
     """
     Models
     """
     model = ViewpointBottleneck(None, None, None)
     model.cuda()
-
-    
+    model = DistributedDataParallel(model, device_ids=[rank])
+    logger.debug('Model init')
     """
     Optimizer and Scheduler
     """
@@ -66,13 +75,21 @@ def train(args):
             optimizer,
             lambda epoch: (1 - epoch / args['max_iter'])**scheduler_args['poly']['power'],
         )
-    """
-    TODO Resuming
-    """
-    """
-    Training starts  
-    """
-    while True:
-        iter_timer.tic()
-        # coords, feats, labels, *_ =
-        
+    # """
+    # TODO Resuming
+    # """
+    # """
+    # Training starts
+    # """
+    logger.debug('Start loop')
+    for step_idx, sample in enumerate(dataloader):
+        loss = model(sample)
+        logger.info(loss.item())
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+
+if __name__ == '__main__':
+    args = get_args('config.yaml')
+    run_distributed(2, train, args)

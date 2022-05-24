@@ -21,7 +21,10 @@ from scipy.linalg import expm, norm
 ##############################
 from IPython import embed
 
+from sufield.lib.utils.distributed import get_rank
+
 class AbstractTransform:
+    COORD_DIM = 3
     TRANSFORM = 392
     def __init__(self) -> None:
         ...
@@ -178,7 +181,6 @@ class RandomDropout(AbstractTransform):
         self.apply_ratio = apply_ratio
 
     def __call__(self, coords, feats, labels):
-        print(coords.shape)
         if random.random() < self.apply_ratio:
             N = len(coords)
             inds = sorted(np.random.choice(
@@ -230,7 +232,7 @@ class ElasticDistortion(AbstractTransform):
         coords_min = coords.min(0)[0]
 
         # Create Gaussian noise tensor of the size given by granularity.
-        noise_dim = ((coords - coords_min).max(0)[0] // granularity).to(int) + 3
+        noise_dim = torch.div((coords - coords_min).max(0)[0], granularity, rounding_mode='floor').to(int) + 3
         noise = torch.randn(*noise_dim, 3).to(torch.float32)
 
         # Smoothing.
@@ -263,11 +265,19 @@ class Compose(AbstractTransform):
 
     def __call__(self, coords, feats, labels, *args):
         for t in self.transforms:
-            coords, feats, labels = t(coords, feats, labels)
+            if t.COORD_DIM == coords.shape[1]:
+                coords, feats, labels = t(coords, feats, labels)
+            elif t.COORD_DIM == 3 and coords.shape[1] == 4:
+                indices, slim_coords = coords[:, 0:1], coords[:, 1:]
+                slim_coords, feats, labels = t(slim_coords, feats, labels)
+                coords = torch.cat((indices, slim_coords), dim=1)
+            else:
+                raise NotImplementedError
+
         return coords, feats, labels, *args
 
 class SplitCompose(object):
-    def __init__(self, sync_transform, random_transform) -> None:
+    def __init__(self, sync_transform, random_transform, coords_dim=3) -> None:
         self.sync_transform = sync_transform
         self.random_transform = random_transform
     
@@ -279,8 +289,18 @@ class SplitCompose(object):
         coords_b, feats_b, labels_b = coords.clone(), feats.clone(), labels.clone()
 
         for t in self.random_transform:
-            coords_a, feats_a, labels_a = t(coords_a, feats_a, labels_a)
-            coords_b, feats_b, labels_b = t(coords_b, feats_b, labels_b)
+            if t.COORD_DIM == coords.shape[1]:
+                coords_a, feats_a, labels_a = t(coords_a, feats_a, labels_a)
+                coords_b, feats_b, labels_b = t(coords_b, feats_b, labels_b)
+            elif t.COORD_DIM == 3 and coords.shape[1] == 4:
+                indices_a, slim_coords_a = coords_a[:, 0:1], coords_a[:, 1:]
+                slim_coords_a, feats_a, labels_a = t(slim_coords_a, feats_a, labels_a)
+                coords_a = torch.cat((indices_a, slim_coords_a), dim=1)
+                indices_b, slim_coords_b = coords_b[:, 0:1], coords_b[:, 1:]
+                slim_coords_b, feats_b, labels_b = t(slim_coords_b, feats_b, labels_b)
+                coords_b = torch.cat((indices_b, slim_coords_b), dim=1)
+            else:
+                raise NotImplementedError
         return (coords_a, feats_a, labels_a), (coords_b, feats_b, labels_b), *args
 
 
@@ -296,7 +316,7 @@ class Voxelize(AbstractTransform):
         transformed_coords = coords / self.voxel_size
         if self.fix_map is None:
             voxelized_coords, voxelized_feats, voxelized_labels, indices_map, reverse_indices_map = ME.utils.sparse_quantize(
-                transformed_coords.cpu().numpy(), feats.cpu().numpy(), labels.cpu().numpy(), return_index=True, return_inverse=True
+                transformed_coords.cpu().numpy(), feats.cpu().numpy(), labels.cpu().numpy(), return_index=True, return_inverse=True, ignore_label=255
             )
         else: 
             voxelized_coords, voxelized_feats, voxelized_labels, indices_map, reverse_indices_map = \
@@ -336,16 +356,26 @@ class RandomRotation(AbstractTransform):
         return coords, feats, labels
 
 class ToSparseTensor(AbstractTransform):
+    COORD_DIM = 4
     def __init__(self) -> None:
         ...
     
     def __call__(self, coords, feats, labels):
+        assert coords.device == feats.device
         tensor_field = ME.TensorField(
-            coordinates=coords.int().to(coords.device),
-            features=feats.to(feats.device),
-            quantization_mode=ME.SparseTensorQuantizationMode.UNWEIGHTED_AVERAGE,
-        ).sparse()
-        return tensor_field, None, labels
+            coordinates=coords.int(),
+            features=feats,
+            # quantization_mode=ME.SparseTensorQuantizationMode.RANDOM_SUBSAMPLE,
+            device=coords.device
+        )
+        return tensor_field, tensor_field.sparse(), labels
+
+class ToDevice(AbstractTransform):
+    def __init__(self, device) -> None:
+        self.device = device
+    
+    def __call__(self, coords, feats, labels):
+        return coords.to(self.device), feats.to(self.device), labels.to(self.device)
 
 
 class RandomScaling(AbstractTransform):
@@ -413,13 +443,13 @@ class cf_collate_fn_factory:
                     f'Truncating batch size at {batch_id} '
                     f'out of {num_full_batch_size} with {batch_num_points - num_points}.',)
                 break
-            coords_batch.append(torch.cat((torch.ones(num_points, 1).int() * batch_id, coords.int()), 1))
+            coords_batch.append(torch.cat((torch.ones(num_points, 1, device=coords.device).int() * batch_id, coords.int()), 1))
             feats_batch.append(feats)
             labels_batch.append(labels.int())
 
         # Concatenate all lists
         assert len(coords_batch) > 0, "limit_numpoints too low, not enough to load a single scene"
-        coords_batch = torch.cat(coords_batch, 0).int()
+        coords_batch = torch.cat(coords_batch, 0).float()
         feats_batch = torch.cat(feats_batch, 0).float()
         labels_batch = torch.cat(labels_batch, 0).int()
         return coords_batch, feats_batch, labels_batch, *tuple(zip(*list_data))[3:]

@@ -1,0 +1,390 @@
+discover-01 05/23 20:00:50 Step 0000
+discover-01 05/23 20:01:36 Step 0001
+discover-01 05/23 20:02:12 Step 0002
+discover-01 05/23 20:02:47 Step 0003
+discover-01 05/23 20:03:18 test
+discover-01 22/05/23 20:04:11 test
+discover-01 2022/05/23 20:04:27 test
+discover-01 2022/05/23 20:04:33 [%(levelname)s] test
+discover-01 2022/05/23 20:04:51 [INFO] test
+discover-01 2022/05/23 20:05:11 [INFO] 24 test
+discover-01 2022/05/23 20:05:31 [INFO] train.py 24 test
+discover-01 2022/05/23 20:06:07 [INFO] train train.py 24 test
+discover-01 2022/05/23 20:06:44 [INFO] train train.py 24 train test
+[discover-01][2022/05/23 20:07:52][INFO][train][train.py 24 train] test
+[discover-01][2022/05/23 20:08:56][INFO][__mp_main__][train.py 24 train] test
+[discover-01][2022/05/23 20:11:03][INFO][__mp_main__][train.py 24 train] test
+[discover-01][2022/05/23 20:11:41][INFO][train][train.py 24 train] test
+[discover-01][2022/05/23 20:12:04][INFO][train][train.py@24] test
+[discover-01][2022/05/23 20:12:32][INFO][train][/home/tb5zhh/SUField/sufield/lib/train.py@24] test
+[discover-01][2022/05/23 20:13:23][INFO][train][train.py@24] test
+[discover-01][2022/05/23 20:37:27][INFO][viewpoint_bottleneck][viewpoint_bottleneck.py@34] torch.Size([79363, 3])
+[discover-01][2022/05/23 23:42:33][INFO][viewpoint_bottleneck][viewpoint_bottleneck.py@34] (tensor([[13., 14.,  7.],
+        [14., 14.,  7.],
+        [14., 17.,  7.],
+        ...,
+        [26., 92., 58.],
+        [26., 91., 58.],
+        [25., 93., 58.]], device='cuda:0'), tensor([[ 92., 118.,  85.],
+        [ 84., 113.,  84.],
+        [ 81., 112.,  84.],
+        ...,
+        [248., 251., 244.],
+        [191., 192., 183.],
+        [239., 246., 238.]], device='cuda:0'), tensor([1, 1, 1,  ..., 0, 0, 0], device='cuda:0', dtype=torch.int32), ('/home/share/datasets/SCANNET/scans/scene0381_01/scene0381_01_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0599_02/scene0599_02_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0089_02/scene0089_02_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0396_02/scene0396_02_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0583_02/scene0583_02_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0271_01/scene0271_01_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0478_00/scene0478_00_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0482_00/scene0482_00_vh_clean_2.ply'), ('/home/share/datasets/SCANNET/scans/scene0381_01/scene0381_01_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0599_02/scene0599_02_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0089_02/scene0089_02_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0396_02/scene0396_02_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0583_02/scene0583_02_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0271_01/scene0271_01_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0478_00/scene0478_00_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0482_00/scene0482_00_vh_clean_2.labels.ply'))
+[discover-01][2022/05/23 23:49:23][INFO][viewpoint_bottleneck][viewpoint_bottleneck.py@34] (tensor([[96., 50., 11.],
+        [95., 49., 11.],
+        [97., 52., 11.],
+        ...,
+        [45.,  5., 39.],
+        [45.,  2., 43.],
+        [45.,  3., 43.]], device='cuda:0'), tensor([[ 87.,  69.,  80.],
+        [ 91.,  64.,  70.],
+        [ 82.,  73.,  79.],
+        ...,
+        [253., 251., 223.],
+        [242., 239., 207.],
+        [255., 250., 214.]], device='cuda:0'), tensor([1, 1, 1,  ..., 0, 0, 0], device='cuda:0', dtype=torch.int32), ('/home/share/datasets/SCANNET/scans/scene0381_01/scene0381_01_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0599_02/scene0599_02_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0089_02/scene0089_02_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0396_02/scene0396_02_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0583_02/scene0583_02_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0271_01/scene0271_01_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0478_00/scene0478_00_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0482_00/scene0482_00_vh_clean_2.ply'), ('/home/share/datasets/SCANNET/scans/scene0381_01/scene0381_01_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0599_02/scene0599_02_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0089_02/scene0089_02_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0396_02/scene0396_02_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0583_02/scene0583_02_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0271_01/scene0271_01_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0478_00/scene0478_00_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0482_00/scene0482_00_vh_clean_2.labels.ply'))
+[discover-01][2022/05/23 23:54:05][INFO][viewpoint_bottleneck][viewpoint_bottleneck.py@34] (tensor([[ 76.,  99.,   6.],
+        [ 76.,  98.,   6.],
+        [ 76., 100.,   6.],
+        ...,
+        [ 21.,   5.,  52.],
+        [ 21.,   3.,  52.],
+        [ 21.,   2.,  52.]], device='cuda:0'), tensor([[107.,  98.,  86.],
+        [103.,  96.,  80.],
+        [109.,  94.,  86.],
+        ...,
+        [171., 149., 158.],
+        [233., 211., 216.],
+        [228., 210., 210.]], device='cuda:0'), tensor([1, 1, 1,  ..., 0, 0, 0], device='cuda:0', dtype=torch.int32), ('/home/share/datasets/SCANNET/scans/scene0381_01/scene0381_01_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0599_02/scene0599_02_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0089_02/scene0089_02_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0396_02/scene0396_02_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0583_02/scene0583_02_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0271_01/scene0271_01_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0478_00/scene0478_00_vh_clean_2.ply', '/home/share/datasets/SCANNET/scans/scene0482_00/scene0482_00_vh_clean_2.ply'), ('/home/share/datasets/SCANNET/scans/scene0381_01/scene0381_01_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0599_02/scene0599_02_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0089_02/scene0089_02_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0396_02/scene0396_02_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0583_02/scene0583_02_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0271_01/scene0271_01_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0478_00/scene0478_00_vh_clean_2.labels.ply', '/home/share/datasets/SCANNET/scans/scene0482_00/scene0482_00_vh_clean_2.labels.ply'))
+[discover-01][2022/05/24 00:24:07][INFO][train][train.py@76] 74.51414489746094
+[discover-01][2022/05/24 00:25:33][INFO][train][train.py@76] 70.13209533691406
+[discover-01][2022/05/24 00:28:21][INFO][train][train.py@76] 76.91702270507812
+[discover-01][2022/05/24 00:33:46][INFO][train][train.py@76] 75.16604614257812
+[discover-01][2022/05/24 00:37:06][INFO][train][train.py@76] 78.38475036621094
+[discover-01][2022/05/24 00:42:56][INFO][train][train.py@76] 76.55976867675781
+[discover-01][2022/05/24 00:46:23][INFO][train][train.py@76] 77.68937683105469
+[discover-01][2022/05/24 01:13:32][INFO][train][train.py@76] 78.93385314941406
+[discover-01][2022/05/24 01:15:03][INFO][train][train.py@76] 79.27383422851562
+[discover-01][2022/05/24 01:17:14][INFO][transforms][transforms.py@363] cuda:0, cuda:0
+[discover-01][2022/05/24 01:17:14][INFO][transforms][transforms.py@363] cuda:0, cuda:0
+[discover-01][2022/05/24 01:17:15][INFO][train][train.py@76] 78.60704040527344
+[discover-01][2022/05/24 01:18:52][WARNING][transforms][transforms.py@363] cuda:0, cuda:0
+[discover-01][2022/05/24 01:18:52][WARNING][transforms][transforms.py@363] cuda:0, cuda:0
+[discover-01][2022/05/24 01:18:52][INFO][train][train.py@76] 72.7468490600586
+[discover-01][2022/05/24 01:21:54][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 01:21:55][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 01:21:55][INFO][train][train.py@76] 66.40187072753906
+[discover-01][2022/05/24 01:36:58][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 01:36:58][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 01:36:58][INFO][train][train.py@76] 83.29989624023438
+[discover-01][2022/05/24 01:39:52][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 01:39:52][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 01:39:53][INFO][train][train.py@76] 75.31273651123047
+[discover-01][2022/05/24 01:49:20][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 01:49:20][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 01:49:21][INFO][train][train.py@76] 78.00011444091797
+[discover-01][2022/05/24 01:54:15][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 01:54:15][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 01:54:15][INFO][train][train.py@76] 76.91717529296875
+[discover-01][2022/05/24 02:01:33][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 02:01:33][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 02:01:33][INFO][train][train.py@76] 78.7357406616211
+[discover-01][2022/05/24 02:04:02][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 02:04:02][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 02:04:02][INFO][train][train.py@76] 69.14112091064453
+[discover-01][2022/05/24 02:09:18][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 02:09:18][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 02:09:19][INFO][train][train.py@76] 61.76734161376953
+[discover-01][2022/05/24 02:30:46][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 02:30:46][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 02:30:46][INFO][train][train.py@76] 78.39518737792969
+[discover-01][2022/05/24 03:05:05][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:05:05][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:05:06][INFO][train][train.py@76] 63.924598693847656
+[discover-01][2022/05/24 03:07:09][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:07:09][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:07:09][INFO][train][train.py@76] 74.19302368164062
+[discover-01][2022/05/24 03:09:16][WARNING][train][train.py@49] MinkowskiConvolution(in=3, out=32, kernel_size=[3, 3, 3], stride=[1, 1, 1], dilation=[1, 1, 1])
+[discover-01][2022/05/24 03:09:54][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:09:54][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:09:54][INFO][train][train.py@77] 75.62388610839844
+[discover-01][2022/05/24 03:11:25][WARNING][train][train.py@49] Parameter containing:
+tensor([[[-0.1048, -0.0755,  0.0625,  ..., -0.0603, -0.0538,  0.0741],
+         [ 0.0817, -0.0062, -0.0408,  ..., -0.1042, -0.0664, -0.0845],
+         [-0.0506,  0.0327, -0.0583,  ...,  0.0289,  0.0506, -0.0018]],
+
+        [[-0.0656, -0.0814, -0.0953,  ...,  0.0048,  0.0625,  0.0910],
+         [ 0.0972,  0.0043, -0.0544,  ..., -0.0567, -0.0557,  0.0269],
+         [ 0.0180,  0.0861,  0.0935,  ...,  0.0532,  0.0836,  0.0115]],
+
+        [[ 0.0230, -0.0297,  0.0429,  ...,  0.0199, -0.0869,  0.0138],
+         [ 0.0241,  0.1111, -0.0952,  ...,  0.0349,  0.0011,  0.0625],
+         [-0.0483, -0.0135, -0.0854,  ...,  0.0172,  0.0325, -0.0070]],
+
+        ...,
+
+        [[-0.0147,  0.0390, -0.0865,  ...,  0.0930, -0.0160, -0.0358],
+         [ 0.0209,  0.0209, -0.0701,  ..., -0.0944, -0.0088,  0.0147],
+         [ 0.0350,  0.0029,  0.0489,  ..., -0.0037,  0.1058, -0.0779]],
+
+        [[ 0.0416, -0.0349, -0.0053,  ...,  0.0902, -0.0629, -0.0808],
+         [-0.0007, -0.0512, -0.0963,  ...,  0.0377,  0.0101, -0.0301],
+         [-0.0669, -0.0172,  0.0904,  ...,  0.0742, -0.0758, -0.0061]],
+
+        [[ 0.0659, -0.0867,  0.0716,  ..., -0.0015,  0.0848,  0.0596],
+         [ 0.0973,  0.0822,  0.0427,  ...,  0.0141, -0.0221,  0.0942],
+         [-0.0556,  0.0396,  0.0396,  ..., -0.0143, -0.0118, -0.0667]]],
+       device='cuda:0', requires_grad=True)
+[discover-01][2022/05/24 03:12:02][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:12:02][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:12:02][INFO][train][train.py@77] 78.99272918701172
+[discover-01][2022/05/24 03:18:23][WARNING][train][train.py@49] Parameter containing:
+tensor([[[ 0.0930,  0.0381, -0.0538,  ..., -0.0304,  0.1106,  0.0709],
+         [-0.0885,  0.0957, -0.0660,  ..., -0.0036, -0.0465,  0.0797],
+         [ 0.0308,  0.0451, -0.1029,  ..., -0.0340, -0.0032,  0.0010]],
+
+        [[ 0.0713,  0.0222, -0.0299,  ...,  0.0704,  0.0952, -0.0371],
+         [-0.0985, -0.0971,  0.0574,  ...,  0.0309, -0.1041,  0.0472],
+         [-0.0012,  0.0304,  0.0675,  ...,  0.1050,  0.0397,  0.1073]],
+
+        [[ 0.0985, -0.0021, -0.0844,  ...,  0.0049, -0.0557, -0.0213],
+         [-0.0550, -0.0114, -0.0685,  ...,  0.0064,  0.0906,  0.0691],
+         [ 0.0607, -0.0768, -0.0635,  ...,  0.0202, -0.0271,  0.0373]],
+
+        ...,
+
+        [[ 0.0254, -0.0437, -0.0652,  ..., -0.0427, -0.0712,  0.1013],
+         [ 0.0045, -0.0815, -0.1091,  ..., -0.1028, -0.0370,  0.0233],
+         [ 0.1060, -0.0629,  0.0114,  ..., -0.0296, -0.0640, -0.0691]],
+
+        [[ 0.0637, -0.1089, -0.0883,  ..., -0.0259, -0.0915,  0.0948],
+         [ 0.0961, -0.0138,  0.1111,  ...,  0.0515,  0.0974,  0.0227],
+         [ 0.0212, -0.0765,  0.0881,  ...,  0.0364,  0.0997, -0.0480]],
+
+        [[-0.0962, -0.0568, -0.0762,  ...,  0.0622, -0.0855, -0.0128],
+         [ 0.1006,  0.1085,  0.0370,  ..., -0.0125,  0.0712,  0.0021],
+         [ 0.0211, -0.0845, -0.0688,  ...,  0.0393, -0.1097, -0.0593]]],
+       device='cuda:0', requires_grad=True)
+[discover-01][2022/05/24 03:19:01][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:19:01][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:19:02][INFO][train][train.py@77] 79.48124694824219
+[discover-01][2022/05/24 03:26:13][WARNING][train][train.py@49] Parameter containing:
+tensor([[[ 0.1106, -0.0612, -0.0897,  ..., -0.1037, -0.0729, -0.0509],
+         [-0.1044,  0.0645,  0.0243,  ..., -0.0580, -0.1047,  0.0600],
+         [-0.0699, -0.0875, -0.0061,  ..., -0.0125, -0.0630, -0.0799]],
+
+        [[ 0.0944, -0.0740, -0.0807,  ..., -0.0963, -0.0477, -0.0786],
+         [ 0.0199,  0.0187,  0.0840,  ..., -0.0275, -0.0377,  0.0632],
+         [ 0.1083, -0.0012,  0.0820,  ..., -0.0393, -0.0442, -0.0640]],
+
+        [[ 0.0497,  0.0969, -0.0095,  ...,  0.0668, -0.0549, -0.0691],
+         [ 0.0857,  0.0388,  0.0663,  ..., -0.0313, -0.0275,  0.0780],
+         [-0.0789, -0.0992, -0.0815,  ..., -0.0953, -0.0947,  0.0269]],
+
+        ...,
+
+        [[-0.0616, -0.1078,  0.0932,  ..., -0.0483,  0.1077, -0.0967],
+         [ 0.0502, -0.0870,  0.0788,  ...,  0.0548,  0.0763,  0.0471],
+         [-0.0790, -0.1048, -0.0257,  ...,  0.0581, -0.0431, -0.1078]],
+
+        [[-0.1046, -0.0109,  0.0011,  ..., -0.0701, -0.0594,  0.1099],
+         [-0.0252,  0.0194, -0.0525,  ...,  0.0782, -0.0448,  0.0546],
+         [ 0.0523, -0.1024, -0.1014,  ..., -0.0575,  0.0235,  0.0554]],
+
+        [[ 0.0866, -0.1074, -0.0248,  ...,  0.0554, -0.0746, -0.0662],
+         [-0.0101, -0.0950,  0.0221,  ...,  0.0545,  0.0665, -0.0844],
+         [ 0.0361, -0.0002,  0.0191,  ..., -0.0087,  0.0861,  0.0271]]],
+       device='cuda:0', requires_grad=True)
+[discover-01][2022/05/24 03:26:50][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:26:50][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:26:50][INFO][train][train.py@77] 49.764427185058594
+[discover-01][2022/05/24 03:37:38][WARNING][train][train.py@49] Parameter containing:
+tensor([[[-0.0005,  0.0539, -0.0634,  ...,  0.0972, -0.0514,  0.0388],
+         [ 0.0170,  0.0247,  0.0343,  ...,  0.0512, -0.0268,  0.0628],
+         [-0.0915, -0.0043, -0.0862,  ...,  0.0317, -0.0087, -0.0203]],
+
+        [[-0.0491, -0.0379,  0.0980,  ..., -0.0387, -0.1066,  0.0276],
+         [-0.0171,  0.0461, -0.0816,  ..., -0.0047,  0.0677,  0.0504],
+         [ 0.0626,  0.0458,  0.0613,  ..., -0.0381, -0.0974,  0.0422]],
+
+        [[ 0.0195,  0.0448,  0.0428,  ...,  0.0316, -0.0256, -0.0502],
+         [-0.0241,  0.0684, -0.0563,  ..., -0.0326, -0.0484,  0.0864],
+         [ 0.0150, -0.0747, -0.1035,  ..., -0.0284, -0.0946, -0.0453]],
+
+        ...,
+
+        [[ 0.0434, -0.0339,  0.0307,  ..., -0.0188, -0.0306, -0.0147],
+         [ 0.0788, -0.0556, -0.0178,  ..., -0.0693, -0.0620, -0.1083],
+         [-0.0317, -0.1074,  0.0243,  ..., -0.1074, -0.0293, -0.0169]],
+
+        [[-0.0861,  0.0402, -0.0472,  ...,  0.0434,  0.0538,  0.0635],
+         [ 0.1101, -0.0757,  0.0065,  ..., -0.0404, -0.0507,  0.0138],
+         [ 0.0029,  0.0011, -0.0940,  ...,  0.0059, -0.0363,  0.0539]],
+
+        [[-0.0567, -0.0805, -0.0997,  ..., -0.0879,  0.0097,  0.0151],
+         [-0.0947, -0.0504,  0.0186,  ..., -0.0986, -0.0281, -0.0699],
+         [-0.1100,  0.0899, -0.0033,  ..., -0.0787, -0.0757,  0.0995]]],
+       device='cuda:0', requires_grad=True)
+[discover-01][2022/05/24 03:38:17][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:38:18][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:38:18][INFO][train][train.py@77] 78.78926086425781
+[discover-01][2022/05/24 03:39:44][WARNING][train][train.py@49] Parameter containing:
+tensor([[[-0.0509, -0.0629, -0.0861,  ..., -0.0460,  0.0308, -0.0091],
+         [-0.0787, -0.0599, -0.0622,  ..., -0.0904, -0.0634,  0.0143],
+         [ 0.0821,  0.0219, -0.0729,  ..., -0.0217, -0.0592,  0.0087]],
+
+        [[ 0.0962,  0.0817, -0.0085,  ...,  0.0139,  0.0337, -0.0586],
+         [ 0.0362, -0.0822, -0.0153,  ...,  0.0315,  0.0201, -0.0430],
+         [-0.0068,  0.0474, -0.0004,  ...,  0.0304,  0.0425, -0.0839]],
+
+        [[ 0.0201, -0.0577,  0.0703,  ...,  0.0264,  0.0507,  0.0761],
+         [ 0.0888,  0.1021, -0.0482,  ...,  0.0154, -0.0418,  0.0142],
+         [-0.1054, -0.0689, -0.0215,  ...,  0.1005, -0.0613,  0.0148]],
+
+        ...,
+
+        [[-0.0449,  0.0398,  0.0047,  ...,  0.0013,  0.0539, -0.0356],
+         [ 0.0720, -0.0932, -0.0421,  ...,  0.0387,  0.0940,  0.0332],
+         [-0.0314, -0.0839, -0.0569,  ...,  0.0903,  0.0135,  0.0997]],
+
+        [[ 0.0447, -0.0467, -0.0692,  ..., -0.0818,  0.0698,  0.0793],
+         [ 0.0184,  0.0824, -0.0160,  ...,  0.1032,  0.0437,  0.0981],
+         [-0.1046,  0.0202, -0.0869,  ...,  0.0925,  0.0968, -0.0926]],
+
+        [[ 0.0670, -0.0083,  0.0932,  ...,  0.0915,  0.0010,  0.0757],
+         [ 0.1015, -0.1108, -0.0205,  ...,  0.0903, -0.0452,  0.0612],
+         [ 0.0996,  0.0810, -0.0295,  ..., -0.0273,  0.0269,  0.0075]]],
+       device='cuda:0', requires_grad=True)
+[discover-01][2022/05/24 03:40:24][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:40:25][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:40:25][INFO][train][train.py@77] 77.5352554321289
+[discover-01][2022/05/24 03:41:55][WARNING][train][train.py@49] Parameter containing:
+tensor([[[ 0.0843, -0.1019,  0.0030,  ...,  0.0356,  0.0364, -0.0791],
+         [ 0.0869, -0.0846,  0.0924,  ...,  0.1004,  0.0327, -0.0270],
+         [-0.0258, -0.0117, -0.0163,  ..., -0.0378, -0.0473, -0.0352]],
+
+        [[ 0.0358, -0.0721,  0.0184,  ..., -0.0898,  0.0374, -0.0814],
+         [-0.0127,  0.1099, -0.0384,  ...,  0.0173,  0.0681,  0.0439],
+         [-0.0543,  0.0240,  0.1004,  ..., -0.0526, -0.1057,  0.0388]],
+
+        [[ 0.0106, -0.0101,  0.0458,  ..., -0.0794, -0.0158,  0.0381],
+         [ 0.0680, -0.0871,  0.0316,  ..., -0.0053,  0.0327, -0.0492],
+         [ 0.0179, -0.0674,  0.0121,  ..., -0.1090,  0.0023,  0.0610]],
+
+        ...,
+
+        [[-0.0600,  0.0730, -0.0708,  ...,  0.0883, -0.0807, -0.0424],
+         [ 0.0160,  0.0197, -0.0888,  ..., -0.0364,  0.0465, -0.0312],
+         [ 0.0977,  0.0988,  0.0383,  ..., -0.0228, -0.0522,  0.1042]],
+
+        [[-0.0608,  0.0596, -0.0986,  ..., -0.0056,  0.0742, -0.0509],
+         [-0.0354,  0.0173, -0.0537,  ...,  0.0448,  0.0194, -0.0613],
+         [ 0.0225, -0.0515, -0.0625,  ..., -0.0440, -0.0326,  0.0461]],
+
+        [[-0.0929,  0.0810, -0.0074,  ...,  0.0116, -0.0519, -0.0440],
+         [ 0.0412,  0.0986,  0.0577,  ...,  0.0613,  0.0007, -0.1073],
+         [-0.0767, -0.1082, -0.0918,  ..., -0.0816,  0.0742,  0.1104]]],
+       device='cuda:0', requires_grad=True)
+[discover-01][2022/05/24 03:42:33][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:42:33][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:42:33][INFO][train][train.py@77] 77.00115966796875
+[discover-01][2022/05/24 03:44:36][WARNING][train][train.py@52] Parameter containing:
+tensor([[[ 0.0220, -0.0636, -0.0802,  ...,  0.0653,  0.0558,  0.1069],
+         [-0.1082,  0.0215, -0.0022,  ...,  0.0558,  0.1055, -0.1019],
+         [ 0.0717,  0.0769,  0.0503,  ...,  0.1026,  0.0469,  0.0481]],
+
+        [[-0.0662, -0.0999, -0.0804,  ..., -0.0842,  0.0830, -0.0857],
+         [-0.1095, -0.0658,  0.0609,  ..., -0.0197,  0.0309,  0.0457],
+         [-0.0818, -0.0666,  0.0934,  ...,  0.0570, -0.0279, -0.0309]],
+
+        [[ 0.0745,  0.0323, -0.0316,  ...,  0.0280,  0.0739, -0.0283],
+         [ 0.0932, -0.0979, -0.0576,  ..., -0.0828, -0.0615, -0.0280],
+         [-0.0969, -0.0588,  0.1089,  ..., -0.0967, -0.0633, -0.1087]],
+
+        ...,
+
+        [[ 0.0976, -0.0659,  0.0001,  ...,  0.0489,  0.0769, -0.0069],
+         [-0.0142,  0.0787,  0.0876,  ..., -0.1081,  0.0106,  0.0416],
+         [ 0.0783,  0.0403, -0.0666,  ...,  0.0630, -0.0550, -0.0738]],
+
+        [[ 0.1063,  0.0881,  0.0142,  ..., -0.1005, -0.0049, -0.0973],
+         [-0.0824, -0.0499,  0.0440,  ..., -0.0032,  0.0408, -0.0082],
+         [ 0.0645, -0.0086,  0.0321,  ...,  0.0816,  0.0249, -0.0866]],
+
+        [[-0.0123,  0.0626,  0.1071,  ...,  0.0683, -0.0237, -0.0231],
+         [-0.0121,  0.0350, -0.0251,  ...,  0.0768, -0.0004,  0.0727],
+         [ 0.0140, -0.0465,  0.0292,  ..., -0.0339, -0.0114,  0.1097]]],
+       device='cuda:0', requires_grad=True)
+[discover-01][2022/05/24 03:45:13][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:45:14][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:45:14][INFO][train][train.py@80] 73.5766372680664
+[discover-01][2022/05/24 03:45:53][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:45:53][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:45:53][INFO][train][train.py@80] 61.01921844482422
+[discover-01][2022/05/24 03:46:28][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:46:28][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:46:28][INFO][train][train.py@80] 67.57884216308594
+[discover-01][2022/05/24 03:47:25][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:47:25][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:47:26][INFO][train][train.py@80] 72.818115234375
+[discover-01][2022/05/24 03:48:05][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:48:05][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:48:05][INFO][train][train.py@80] 70.03497314453125
+[discover-01][2022/05/24 03:48:53][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:48:53][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:48:53][INFO][train][train.py@80] 70.78047180175781
+[discover-01][2022/05/24 03:49:48][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:49:48][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:49:49][INFO][train][train.py@80] 61.61064910888672
+[discover-01][2022/05/24 03:50:31][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:50:31][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:50:31][INFO][train][train.py@80] 70.80470275878906
+[discover-01][2022/05/24 03:51:02][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:51:02][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:51:02][INFO][train][train.py@80] 69.40777587890625
+[discover-01][2022/05/24 03:51:45][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:51:45][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:51:45][INFO][train][train.py@80] 71.52959442138672
+[discover-01][2022/05/24 03:52:23][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:52:23][WARNING][transforms][transforms.py@365] 0 cuda:0, cuda:0
+[discover-01][2022/05/24 03:52:24][INFO][train][train.py@80] 74.42791748046875
+[discover-01][2022/05/24 03:55:48][INFO][train][train.py@80] 70.09237670898438
+[discover-01][2022/05/24 03:56:28][INFO][train][train.py@80] 29.176490783691406
+[discover-01][2022/05/24 03:57:05][INFO][train][train.py@80] 27.630966186523438
+[discover-01][2022/05/24 03:58:03][INFO][train][train.py@80] 27.22281265258789
+[discover-01][2022/05/24 04:00:15][INFO][train][train.py@80] 74.34671783447266
+[discover-01][2022/05/24 04:00:38][INFO][train][train.py@80] 26.466529846191406
+[discover-01][2022/05/24 04:01:44][INFO][train][train.py@80] 30.046051025390625
+[discover-01][2022/05/24 04:02:21][INFO][train][train.py@80] 26.136005401611328
+[discover-01][2022/05/24 04:02:59][INFO][train][train.py@80] 25.903278350830078
+[discover-01][2022/05/24 04:03:49][INFO][train][train.py@80] 24.550922393798828
+[discover-01][2022/05/24 04:04:33][INFO][train][train.py@80] 26.327939987182617
+[discover-01][2022/05/24 04:05:24][INFO][train][train.py@80] nan
+[discover-01][2022/05/24 04:05:42][INFO][train][train.py@80] nan
+[discover-01][2022/05/24 04:08:39][INFO][train][train.py@80] 73.739990234375
+[discover-01][2022/05/24 04:12:14][INFO][train][train.py@79] 70.89938354492188
+[discover-01][2022/05/24 04:12:53][INFO][train][train.py@79] 31.507474899291992
+[discover-01][2022/05/24 04:12:54][INFO][train][train.py@79] 24.647483825683594
+[discover-01][2022/05/24 04:12:55][INFO][train][train.py@79] 28.797515869140625
+[discover-01][2022/05/24 04:12:56][INFO][train][train.py@79] 26.786893844604492
+[discover-01][2022/05/24 04:12:57][INFO][train][train.py@79] 26.702781677246094
+[discover-01][2022/05/24 12:35:05][INFO][train][train.py@80] 83.65109252929688
+[discover-01][2022/05/24 12:35:09][INFO][train][train.py@80] 32.090110778808594
+[discover-01][2022/05/24 12:35:26][INFO][train][train.py@80] 29.17596435546875
+[discover-01][2022/05/24 12:35:28][INFO][train][train.py@80] 25.84818458557129
+[discover-01][2022/05/24 12:36:36][INFO][train][train.py@80] 29.624649047851562
+[discover-01][2022/05/24 12:36:38][INFO][train][train.py@80] 25.23540687561035
+[discover-01][2022/05/24 12:37:14][INFO][train][train.py@80] 26.310649871826172
+[discover-01][2022/05/24 12:37:15][INFO][train][train.py@80] 26.92998504638672
+[discover-01][2022/05/24 12:38:44][INFO][train][train.py@80] 25.59852409362793
+[discover-01][2022/05/24 12:38:45][INFO][train][train.py@80] 24.060829162597656
+[discover-01][2022/05/24 12:39:15][INFO][train][train.py@80] 26.15840721130371
+[discover-01][2022/05/24 12:39:16][INFO][train][train.py@80] 23.436370849609375
+[discover-01][2022/05/24 12:43:24][INFO][train][train.py@80] 77.12184143066406
+[discover-01][2022/05/24 12:43:27][INFO][train][train.py@80] 26.664745330810547
+[discover-01][2022/05/24 12:43:37][INFO][train][train.py@80] 29.516132354736328
+[discover-01][2022/05/24 12:43:38][INFO][train][train.py@80] 25.926855087280273
+[discover-01][2022/05/24 12:44:45][INFO][train][train.py@80] 26.550609588623047
+[discover-01][2022/05/24 12:44:47][INFO][train][train.py@80] 25.695417404174805

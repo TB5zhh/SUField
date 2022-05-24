@@ -1,7 +1,8 @@
 training:
   max_iter: 20000
-  batch_size: 8
+  batch_size: 4
   limit_numpoints:
+  num_workers: 4
   dataset:
     data_list: /home/tb5zhh/SUField/datasets/ScanNetv2_train_data.txt
     label_list: /home/tb5zhh/SUField/datasets/ScanNetv2_train_labels.txt
@@ -22,7 +23,7 @@ training:
   
   optimizer:
     type: SGD # SGD, Adam
-    learning_rate: 0.1
+    learning_rate: 0.01
     SGD:
       momentum: 0.9
       dampening: 0.1

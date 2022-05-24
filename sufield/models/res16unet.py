@@ -1,6 +1,6 @@
-from models.resnet import ResNetBase, get_norm
-from models.modules.common import ConvType, NormType, conv, conv_tr
-from models.modules.resnet_block import BasicBlock, Bottleneck
+from .resnet import ResNetBase, get_norm
+from .modules.common import ConvType, NormType, conv, conv_tr
+from .modules.resnet_block import BasicBlock, Bottleneck
 
 from MinkowskiEngine import MinkowskiReLU
 import MinkowskiEngine.MinkowskiOps as me
@@ -14,8 +14,8 @@ class Res16UNetBase(ResNetBase):
     INIT_DIM = 32
     OUT_PIXEL_DIST = 1
     NORM_TYPE = NormType.BATCH_NORM
-    NON_BLOCK_CONV_TYPE = ConvType.SPATIAL_HYPERCUBE
-    CONV_TYPE = ConvType.SPATIAL_HYPERCUBE_TEMPORAL_HYPERCROSS
+    NON_BLOCK_CONV_TYPE = ConvType.SPATIAL_HYPER_CUBE
+    CONV_TYPE = ConvType.SPATIAL_HYPER_CUBE_TEMPORAL_HYPER_CROSS
 
     # To use the model, must call initialize_coords before forward pass.
     # Once data is processed, call clear to reset the model before calling initialize_coords

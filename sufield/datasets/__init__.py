@@ -8,5 +8,4 @@ TRANSFORM_ZOO = _ZOO_FACTORY(transforms)
 
 import numpy as np
 
-get_transform = lambda input_args: transforms.Compose(
-    [TRANSFORM_ZOO[name](*eval(args)) for name, args in input_args.items()])
+get_transform = lambda input_args: [TRANSFORM_ZOO[name](*eval(args)) for name, args in input_args.items()]

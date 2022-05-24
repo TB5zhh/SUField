@@ -2,9 +2,9 @@ import torch.nn as nn
 
 import MinkowskiEngine as ME
 
-from models.model import Model
-from models.modules.common import ConvType, NormType, get_norm, conv, sum_pool
-from models.modules.resnet_block import BasicBlock, Bottleneck
+from .model import Model
+from .modules.common import ConvType, NormType, get_norm, conv, sum_pool
+from .modules.resnet_block import BasicBlock, Bottleneck
 
 
 class ResNetBase(Model):
@@ -14,7 +14,7 @@ class ResNetBase(Model):
     PLANES = (64, 128, 256, 512)
     OUT_PIXEL_DIST = 32
     HAS_LAST_BLOCK = False
-    CONV_TYPE = ConvType.HYPERCUBE
+    CONV_TYPE = ConvType.HYPER_CUBE
 
     def __init__(self, in_channels, out_channels, dilations, bn_momentum, conv1_kernel_size=3, D=3):
         assert self.BLOCK is not None

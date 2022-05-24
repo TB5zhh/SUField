@@ -1,5 +1,8 @@
+from logging import getLogger
 import torch
 from torch import nn
+
+from sufield.lib.utils.distributed import get_rank
 
 from ..datasets import transforms as t
 from .modules.loss import BarlowTwinsLoss, VICRegLoss
@@ -16,7 +19,7 @@ class ViewpointBottleneck(nn.Module):
         self.encoder.final = nn.Identity()
         self.criterion = BarlowTwinsLoss()
         self.train_split_transform = t.SplitCompose(
-            sync_transform=[],
+            sync_transform=[t.ToDevice(get_rank())],
             random_transform=[
                 t.RandomRotation(),
                 t.RandomTranslation(),
@@ -24,16 +27,14 @@ class ViewpointBottleneck(nn.Module):
                 t.ToSparseTensor(),
             ],
         )
-        self.val_split_trainsform = t.Composes([
-            t.ToSparseTensor()
-        ])
+        self.val_split_trainsform = t.Compose([t.ToSparseTensor()])
         self.fc = None
 
     def forward(self, input):
         if self.training:
-            (tfield_a, _, _), (tfield_b, _, _), *_ = self.train_split_transform(*input)
-            feats_a = self.encoder(tfield_a).slice(tfield_a)
-            feats_b = self.encoder(tfield_b).slice(tfield_b)
+            (tfield_a, tfield_sparse_a, _), (tfield_b, tfield_sparse_b, _), *_ = self.train_split_transform(*input)
+            feats_a = self.encoder(tfield_sparse_a).slice(tfield_a)
+            feats_b = self.encoder(tfield_sparse_b).slice(tfield_b)
 
             indices = p2.furthest_point_sampling(feats_a.C[:, 1:].unsqueeze(0).contiguous(), 1024).reshape(1024).long()
 

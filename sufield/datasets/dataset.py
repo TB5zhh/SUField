@@ -1,4 +1,6 @@
+from logging import getLogger
 import numpy as np
+import torch
 from plyfile import PlyData
 from torch.utils.data import Dataset
 
@@ -76,12 +78,12 @@ class PLYPointCloudDataset(FileListsDataset):
         # N * 3, uint8
         feats = np.stack((data['vertex']['red'], data['vertex']['green'], data['vertex']['blue']), axis=1)
 
-        ret = [coords, feats]
+        ret = [torch.from_numpy(coords), torch.from_numpy(feats)]
 
         if label_path is not None:
             labels = PlyData.read(label_path)
             labels_data = labels['vertex']['label'].astype(np.uint8)
-            ret.append(labels_data)
+            ret.append(torch.from_numpy(labels_data))
         else:
             ret.append(None)
 
@@ -134,9 +136,12 @@ class ScanNetVoxelizedDataset(ScanNetDataset):
         self.transforms = transforms
 
     def sample_loader(self, data_path, label_path=None):
+        getLogger().info(f'Load start')
         result = super().sample_loader(data_path, label_path)
+        getLogger().info(f'Load completes, transform starts')
         if self.transforms:
             result = self.transforms(*result)
+        getLogger().info(f'Transform completes')
         return result
 
 
