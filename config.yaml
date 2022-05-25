@@ -1,13 +1,14 @@
 exp_name: viewpoint_bottleneck_scannet
 log_root_dir: logs
+resume:
 training:
-  max_iter: 20000
-  batch_size: 36
+  max_iter: 100000
+  batch_size: 12
   world_size: 4
   num_workers: 2
-  checkpoint_steps: 1000
-  validate_steps:
-  limit_numpoints: 600000
+  checkpoint_steps: 500
+  validate_steps: 0
+  limit_numpoints: 400000
   dataset:
     bundle_dir: '/home/tb5zhh/SUField/bundled_datasets/SCANNET'
     data_list: /home/tb5zhh/SUField/datasets/ScanNetv2_train_data.txt
@@ -29,7 +30,7 @@ training:
   
   optimizer:
     type: SGD # SGD, Adam
-    learning_rate: 0.1
+    learning_rate: 1.0e-3
     SGD:
       momentum: 0.9
       dampening: 0.1

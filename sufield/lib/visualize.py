@@ -1,3 +1,8 @@
+from PIL import Image
+
+import numpy as np
+
+
 CITYSCAPES_PALETTE = [(0., 0., 0.), (174., 199., 232.), (152., 223., 138.), (31., 119., 180.), (255., 187., 120.),
                       (188., 189., 34.), (140., 86., 75.), (255., 152., 150.), (214., 39., 40.), (197., 176., 213.),
                       (148., 103., 189.), (196., 156., 148.), (23., 190., 207.), (26., 13., 201.), (247., 182., 210.),
@@ -25,3 +30,8 @@ def dump_points_with_features(coords, feats, output):
     with open(output, 'w') as f:
         for coord, feat in zip(coords, feats):
             print(f"{coord[0]} {coord[1]} {coord[2]} {feat[0]} {feat[1]} {feat[2]}", file=f)
+
+
+def dump_correlated_map(ret, output):
+    arr = ret.detach().cpu().numpy()
+    Image.fromarray(np.stack([(arr * 255).astype(np.uint8) for _ in range(3)], axis=2)).save(output)

@@ -10,20 +10,21 @@ class BarlowTwinsLoss(nn.Module):
         self.coef = coef
 
     def forward(self, x, y):
-        x_norm = (x - x.mean(dim=0))
-        y_norm = (y - y.mean(dim=0))
+        x_norm = (x - x.mean(dim=0)) / x.std(dim=0)
+        y_norm = (y - y.mean(dim=0)) / y.std(dim=0)
         cov = x_norm.t() @ y_norm
 
         x_l2 = x.pow(2).sum(0, keepdim=True).sqrt()
         y_l2 = y.pow(2).sum(0, keepdim=True).sqrt()
-        cov = cov / (x_l2.t() @ y_l2 + 1e-6)
+        cov = cov / (x_l2.t() @ y_l2)
 
         ret = (cov - torch.eye(cov.shape[0], device=cov.device)).pow(2)
         coef = self.coef * torch.ones_like(cov, device=cov.device) + (1 - self.coef) * torch.eye(cov.shape[0], device=cov.device)
         ret = ret * coef
 
-        loss = ret.sum()
-        return loss
+        assert ret.shape[0] > 0
+        loss = ret.sum() / ret.shape[0]
+        return loss, ret
 
 
 class VICRegLoss(nn.Module):

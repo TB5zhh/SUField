@@ -6,7 +6,7 @@ from sufield.lib.utils.distributed import get_rank
 
 from ..datasets import transforms as t
 from .modules.loss import BarlowTwinsLoss, VICRegLoss
-from .res16unet import Res16UNet34C
+from .res16unet import Res16UNet34C, Res16UNet34T
 
 import pointnet2._ext as p2
 
@@ -15,11 +15,11 @@ class ViewpointBottleneck(nn.Module):
 
     def __init__(self, arch, criterion, split_transform) -> None:
         super().__init__()
-        self.encoder = Res16UNet34C(3, 20, [1 for _ in range(8)], 0.02)
+        self.encoder = Res16UNet34T(3, 20, [1 for _ in range(8)], 0.02)
         self.encoder.final = nn.Identity()
         self.criterion = BarlowTwinsLoss()
         self.train_split_transform = t.SplitCompose(
-            sync_transform=[],
+            sync_transform=[t.ToDevice(get_rank())],
             random_transform=[
                 t.RandomRotation(),
                 t.RandomTranslation(),
