@@ -7,6 +7,7 @@ training:
   batch_size: 4
   world_size: 2
   num_workers: 2
+  logging_steps: 10
   checkpoint_steps: 50
   validate_steps: 0
   limit_numpoints: 400000
