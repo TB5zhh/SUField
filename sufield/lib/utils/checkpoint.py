@@ -1,3 +1,4 @@
+import os
 import torch
 
 from .distributed import get_rank
@@ -20,4 +21,5 @@ def checkpoint(args: dict,
             'args': args,
         }
         prefix = f'step#{step}' if suffix is None else suffix
-        torch.save(state_dict, f"{args['output_dir']}/checkpoint-{prefix}.pth")
+        os.makedirs(f"{args['output_dir']}/checkpoints/", exist_ok=True)
+        torch.save(state_dict, f"{args['output_dir']}/checkpoints/checkpoint-{prefix}.pth")

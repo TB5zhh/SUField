@@ -1,14 +1,16 @@
-exp_name: viewpoint_bottleneck_scannet
+exp_name: viewpoint_bottleneck_scannet_test
 log_root_dir: logs
-resume:
+load:
 training:
+  mode: SSRL
   max_iter: 100000
-  batch_size: 12
-  world_size: 4
+  batch_size: 4
+  world_size: 2
   num_workers: 2
-  checkpoint_steps: 500
+  checkpoint_steps: 50
   validate_steps: 0
   limit_numpoints: 400000
+  arch: Res16UNet34T
   dataset:
     bundle_dir: '/home/tb5zhh/SUField/bundled_datasets/SCANNET'
     data_list: /home/tb5zhh/SUField/datasets/ScanNetv2_train_data.txt

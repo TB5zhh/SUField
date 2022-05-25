@@ -2,6 +2,8 @@ from locale import normalize
 import torch
 from torch import nn
 
+from sufield.lib.utils.distributed import get_world_size
+
 
 class BarlowTwinsLoss(nn.Module):
 
@@ -10,13 +12,13 @@ class BarlowTwinsLoss(nn.Module):
         self.coef = coef
 
     def forward(self, x, y):
-        x_norm = (x - x.mean(dim=0)) / x.std(dim=0)
-        y_norm = (y - y.mean(dim=0)) / y.std(dim=0)
-        cov = x_norm.t() @ y_norm
+        bn = nn.BatchNorm1d(x.shape[-1]).to(x.device)
+        # x_norm = (x - x.mean(dim=0)) / x.std(dim=0)
+        # y_norm = (y - y.mean(dim=0)) / y.std(dim=0)
+        cov = bn(x).t() @ bn(y)
 
-        x_l2 = x.pow(2).sum(0, keepdim=True).sqrt()
-        y_l2 = y.pow(2).sum(0, keepdim=True).sqrt()
-        cov = cov / (x_l2.t() @ y_l2)
+        torch.distributed.all_reduce(cov)
+        cov /= x.shape[0] * get_world_size()
 
         ret = (cov - torch.eye(cov.shape[0], device=cov.device)).pow(2)
         coef = self.coef * torch.ones_like(cov, device=cov.device) + (1 - self.coef) * torch.eye(cov.shape[0], device=cov.device)

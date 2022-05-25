@@ -7,7 +7,7 @@ class Timer(object):
     def __init__(self):
         self.total_time = 0.
         self.calls = 0
-        self.start_time = 0.
+        self.start_time = time.time()
         self.diff = 0.
         self.average_time = 0.
 

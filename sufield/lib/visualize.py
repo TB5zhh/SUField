@@ -32,6 +32,9 @@ def dump_points_with_features(coords, feats, output):
             print(f"{coord[0]} {coord[1]} {coord[2]} {feat[0]} {feat[1]} {feat[2]}", file=f)
 
 
-def dump_correlated_map(ret, output):
+def get_correlated_map(ret):
     arr = ret.detach().cpu().numpy()
-    Image.fromarray(np.stack([(arr * 255).astype(np.uint8) for _ in range(3)], axis=2)).save(output)
+    return np.stack([(arr * 255).astype(np.uint8) for _ in range(3)], axis=2)
+
+def dump_correlated_map(ret, output):
+    Image.fromarray(get_correlated_map(ret)).save(output)

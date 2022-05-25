@@ -1,38 +1,43 @@
+from cProfile import label
 from logging import getLogger
+
+import pointnet2._ext as p2
 import torch
 from torch import nn
 
-from sufield.lib.utils.distributed import get_rank
-
 from ..datasets import transforms as t
+from ..lib.utils.distributed import get_rank
+from . import MODEL_ZOO
 from .modules.loss import BarlowTwinsLoss, VICRegLoss
-from .res16unet import Res16UNet34C, Res16UNet34T
-
-import pointnet2._ext as p2
 
 
 class ViewpointBottleneck(nn.Module):
 
-    def __init__(self, arch, criterion, split_transform) -> None:
+    def __init__(self, arch, mode='SSRL', criterion='BarlowTwinsLoss') -> None:
         super().__init__()
-        self.encoder = Res16UNet34T(3, 20, [1 for _ in range(8)], 0.02)
+        self.mode = mode
+        self.encoder_cls = MODEL_ZOO[arch]
+        self.encoder = self.encoder_cls(3, 20, [1 for _ in range(8)], 0.02)
+        self.fc = self.encoder.final
         self.encoder.final = nn.Identity()
-        self.criterion = BarlowTwinsLoss()
-        self.train_split_transform = t.SplitCompose(
-            sync_transform=[t.ToDevice(get_rank())],
-            random_transform=[
-                t.RandomRotation(),
-                t.RandomTranslation(),
-                t.RandomScaling(),
-                t.ToSparseTensor(),
-            ],
-        )
-        self.val_split_trainsform = t.Compose([t.ToSparseTensor()])
-        self.fc = None
+        if mode == 'SSRL':
+            self.criterion = BarlowTwinsLoss() if criterion == 'BarlowTwinsLoss' else VICRegLoss()
+            self.split_transform = t.SplitCompose(
+                sync_transform=[t.ToDevice(get_rank())],
+                random_transform=[
+                    t.RandomRotation(),
+                    t.RandomTranslation(),
+                    t.RandomScaling(),
+                    t.ToSparseTensor(),
+                ],
+            )
+        else:
+            self.criterion = nn.CrossEntropyLoss(ignore_index=255)
+            self.split_transform = t.Compose([t.ToSparseTensor()])
 
-    def forward(self, input):
-        if self.training:
-            (tfield_a, tfield_sparse_a, _), (tfield_b, tfield_sparse_b, _), *_ = self.train_split_transform(*input)
+    def train_step(self, input):
+        if self.mode == 'SSRL':
+            (tfield_a, tfield_sparse_a, _), (tfield_b, tfield_sparse_b, _), *_ = self.split_transform(*input)
             feats_a = self.encoder(tfield_sparse_a).slice(tfield_a)
             feats_b = self.encoder(tfield_sparse_b).slice(tfield_b)
 
@@ -43,8 +48,15 @@ class ViewpointBottleneck(nn.Module):
 
             return self.criterion(ds_feats_a, ds_feats_b)
         else:
-            tfield, _, target, *_ = self.val_split_trainsform(*input)
-            feats = self.encoder(tfield).slice(tfield)
-            logits = self.fc(feats)
+            tfield, tfield_sparse, target, *_ = self.split_transform(*input)
+            logits = self.fc(self.encoder(tfield_sparse)).slice(tfield).F
+            return self.criterion(logits, target.long()), None
 
-            # TODO evaluate validation
+    def validate_step(self, input):
+        pass
+
+    def forward(self, input):
+        if self.training:
+            return self.train_step(input)
+        else:
+            return self.validate_step(input)
