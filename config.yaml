@@ -1,14 +1,15 @@
-exp_name: viewpoint_bottleneck_scannet_test
+exp_name: viewpoint_bottleneck_scannet_ssrl
 log_root_dir: logs
 load:
+seed: 42
 training:
   mode: SSRL
   max_iter: 100000
-  batch_size: 4
+  batch_size: 12
   world_size: 2
   num_workers: 2
   logging_steps: 10
-  checkpoint_steps: 50
+  checkpoint_steps: 1000
   validate_steps: 0
   limit_numpoints: 400000
   arch: Res16UNet34T
