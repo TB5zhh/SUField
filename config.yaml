@@ -4,11 +4,11 @@ load:
 training:
   mode: SSRL
   max_iter: 100000
-  batch_size: 24
+  batch_size: 12
   world_size: 2
   num_workers: 2
   logging_steps: 10
-  checkpoint_steps: 50
+  checkpoint_steps: 1000
   validate_steps: 0
   limit_numpoints: 400000
   arch: Res16UNet34T
