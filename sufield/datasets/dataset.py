@@ -111,18 +111,19 @@ class PLYPointCloudDataset(FileListsDataset):
                 ret.append(label_path)
 
         return tuple(ret)
-        
+
 
 class Dynamic(Dataset):
 
-    def __init__(self, cls, **kwargs) -> None:
-        self.base = cls(**kwargs)
+    def __init__(self, cls, *args, **kwargs) -> None:
+        self.base = cls(*args, **kwargs)
 
     def __getitem__(self, index):
         return self.base.__getitem__(index)
 
     def __len__(self):
         return len(self.base)
+
 
 class ScanNet(Dynamic):
     """
@@ -166,31 +167,96 @@ class ScanNetVoxelized(ScanNet):
         return result
 
 
+class TrainValSplit(Dynamic):
+
+    def __init__(self, cls, *args, **kwargs) -> None:
+        super().__init__(cls, *args, **kwargs)
+        split_file_dir = kwargs['split_file_dir']
+        self.split = kwargs['split']
+        with open(f"{split_file_dir}/scannetv2_train.txt") as f:
+            train_list = [i.strip() for i in f.readlines()]
+            self.length = len(train_list)
+        with open(f"{split_file_dir}/scannetv2_val.txt") as f:
+            val_list = [i.strip() for i in f.readlines()]
+            self.length = len(val_list)
+        with open(f"{split_file_dir}/scannetv2_test.txt") as f:
+            test_list = [i.strip() for i in f.readlines()]
+            self.length = len(test_list)
+        full_list = sorted([*[(i, 0) for i in train_list], *[(i, 1) for i in val_list]], key=lambda x: x[0])
+        if self.split == 'train':
+            self.idx_map = [idx for idx, i in enumerate(full_list) if i[1] == 0]
+        elif self.split == 'val':
+            self.idx_map = [idx for idx, i in enumerate(full_list) if i[1] == 1]
+        elif self.split == 'test':
+            self.idx_map = [i for i in range(len(test_list))]
+
+    def __getitem__(self, index):
+        return super().__getitem__(self.idx_map[index])
+
+    def __len__(self):
+        return self.length
+
+
+class Limited(TrainValSplit):
+
+    def __init__(self, cls, *args, **kwargs) -> None:
+        super().__init__(cls, *args, **kwargs)
+        self.split_dir = kwargs['annotate_idx_dir']
+        self.limited_size = int(kwargs['size'])
+        self.label_indices = torch.load(f"{self.split_dir}/points{self.limited_size}")
+        self.indices = [(k, v) for k, v in sorted(self.label_indices.items(), key=lambda i: i[0])]
+
+    def __getitem__(self, index):
+        result = super().__getitem__(index)
+        if self.split == 'train' and result[2] is not None:
+            label_copy = torch.clone(result[2])
+            result[2].fill_(255)
+            print(self.indices[index][0])
+            result[2][self.indices[index][1]] = label_copy[self.indices[index][1]]
+        return result
+
+
 from IPython import embed
 
 
 def test():
-    dataset = ScanNetVoxelized()(
-        data_list_path='/home/tb5zhh/SUField/datasets/ScanNetv2_train_data.txt',
-        label_list_path='/home/tb5zhh/SUField/datasets/ScanNetv2_train_labels.txt',
-        return_paths=True,
-        transforms=t.Compose([
-            t.ToTensor(),
-            # t.ElasticDistortion(((0.2, 0.4), (0.8, 1.6))),
-            # t.RandomRotation(((0,0),(0,0),(np.pi/2, np.pi/2))),
-            # t.RandomScaling(),
-            # t.NonNegativeTranslation()
-            # t.Voxelize(),
-            # t.RandomDropout(0.5, 1),
-            t.RandomTranslation([(2, 2), (2, 2), (2, 2)], 1),
-            # t.ChromaticAutoContrast(),
-            # t.ChromaticTranslation(0.1),
-            # t.ChromaticJitter(0.05),
-            # t.HueSaturationTranslation(0.5, 0.2)
-        ]),
+    transforms = t.Compose([
+        t.ToTensor(),
+        # t.ElasticDistortion(((0.2, 0.4), (0.8, 1.6))),
+        # t.RandomRotation(((0,0),(0,0),(np.pi/2, np.pi/2))),
+        # t.RandomScaling(),
+        # t.NonNegativeTranslation()
+        # t.Voxelize(),
+        # t.RandomDropout(0.5, 1),
+        # t.RandomTranslation([(2, 2), (2, 2), (2, 2)], 1),
+        # t.ChromaticAutoContrast(),
+        # t.ChromaticTranslation(0.1),
+        # t.ChromaticJitter(0.05),
+        # t.HueSaturationTranslation(0.5, 0.2)
+    ])
+    # dataset = ScanNetVoxelized(
+    #     BundledDataset,
+    #     bundle_path='/home/tb5zhh/SUField/bundled_datasets/SCANNET/train.npy',
+    #     transforms=transforms,
+    # )
+    dataset = Limited(
+        ScanNetVoxelized,
+        BundledDataset,
+        bundle_path='/home/tb5zhh/SUField/bundled_datasets/SCANNET/train.npy',
+        transforms=transforms,
+        annotate_idx_dir='/home/tb5zhh/SUField/bundled_datasets/SCANNET/limited_annotation',
+        size=20,
+        split_file_dir='/home/tb5zhh/SUField/bundled_datasets/SCANNET/split',
+        split='train',
     )
-    result = dataset[0]
-    dump_points_with_labels(result[0], result[2], 'voxelized.txt')
+    with open('/home/tb5zhh/SUField/bundled_datasets/SCANNET/split/scannetv2_train.txt') as f:
+        l = sorted([i.strip() for i in f.readlines()])
+    for i in range(100):
+        idx = randint(0, 1000)
+        print(l[idx])
+        result = dataset[idx]
+        print((result[2]!=255).sum())
+        # dump_points_with_labels(result[0], result[2], 'voxelized.txt')
 
 
 if __name__ == '__main__':

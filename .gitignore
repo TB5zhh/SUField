@@ -11,3 +11,4 @@ checkpoints/
 /tmp
 datasets/*.txt
 logs/
+bundled_datasets/
