@@ -17,17 +17,9 @@ from ..datasets.dataset import BundledDataset, ScanNetVoxelized
 from ..datasets.sampler import DistributedInfSampler, InfSampler
 from ..datasets.transforms import cf_collate_fn_factory
 from ..models.viewpoint_bottleneck import ViewpointBottleneck
-from .utils import (
-    AverageMeter,
-    Timer,
-    current_timestr,
-    get_args,
-    get_rank,
-    checkpoint,
-    get_world_size,
-    setup_logger,
-    run_distributed,
-)
+from .utils import (AverageMeter, Timer, checkpoint, current_timestr,
+                    deterministic, get_args, get_rank, get_world_size,
+                    run_distributed, setup_logger)
 from .visualize import get_correlated_map
 
 
@@ -35,13 +27,15 @@ def train(args):
     rank = get_rank()
     world_size = get_world_size()
     torch.cuda.set_device(rank)
+
     setup_logger(rank, f"{args['output_dir']}/output.log")
     if args['resume'] is not None:
         state_dict = torch.load(args['resume'], map_location=f"cuda:{rank}")
     elif args['load'] is not None:
         state_dict = torch.load(args['load'], map_location=f"cuda:{rank}")
-    training_args = args['training']
 
+    training_args = args['training']
+    deterministic(args['seed'])
     logger = logging.getLogger(__name__)
     if rank == 0:
         os.makedirs(f"{args['output_dir']}/tensorboard", exist_ok=True)
