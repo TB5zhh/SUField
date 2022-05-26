@@ -29,7 +29,7 @@ train:
     RandomScaling: "[]"
     NonNegativeTranslation: "[]"
     Voxelize: "[]"
-    RandomDropout: "[0.5, 1]"
+    RandomDropout: "[0.2, 1]"
     RandomHorizontalFlip: "['z']"
     ChromaticAutoContrast: "[]"
     ChromaticTranslation: "[]"

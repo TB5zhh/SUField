@@ -54,7 +54,6 @@ def train(args):
     Dataset, Transforms and Dataloaders
     """
     train_transforms = t.Compose(get_transform(args['train']['transforms']))
-    validate_transforms = t.Compose(get_transform(args['validate']['transforms']))
 
     if args['train']['mode'] == 'SSRL':
         train_dataset = ScanNetVoxelized(
@@ -72,6 +71,7 @@ def train(args):
             pin_memory=True,
         )
     elif args['train']['mode'] == 'Finetune':
+        validate_transforms = t.Compose(get_transform(args['validate']['transforms']))
         train_dataset = LimitedTrainValSplit(
             ScanNetVoxelized,
             BundledDataset,
