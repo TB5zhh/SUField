@@ -9,9 +9,10 @@ class PerClassCriterion:
 
     def update(self, prediction, target):
         assert prediction.shape == target.shape
+    
         mask = torch.logical_and(target >= 0, target < self.num_classes)
         self.stat += torch.bincount(
-            self.num_classes * target[mask] + prediction.cpu()[mask],
+            self.num_classes * target.cpu()[mask] + prediction.cpu()[mask],
             minlength=self.num_classes**2,
         ).reshape(self.num_classes, self.num_classes)
 

@@ -12,12 +12,14 @@ from torch.utils.tensorboard import SummaryWriter
 
 from ..datasets import get_transform
 from ..datasets import transforms as t
-from ..datasets.dataset import BundledDataset, ScanNetVoxelized, LimitedTrainValSplit, TrainValSplit
+from ..datasets.dataset import (BundledDataset, LimitedTrainValSplit,
+                                ScanNetVoxelized, TrainValSplit)
 from ..datasets.sampler import DistributedInfSampler, InfSampler
 from ..datasets.transforms import cf_collate_fn_factory
 from ..models.viewpoint_bottleneck import ViewpointBottleneck
-from .utils import (AverageMeter, Timer, checkpoint, current_timestr, deterministic, get_args, get_correlated_map, get_rank, get_world_size, run_distributed,
-                    setup_logger)
+from .utils import (AverageMeter, Timer, checkpoint, current_timestr,
+                    deterministic, get_args, get_correlated_map, get_rank,
+                    get_world_size, run_distributed, setup_logger)
 from .validate import validate_pass
 
 
@@ -51,6 +53,7 @@ def train(args):
     Dataset, Transforms and Dataloaders
     """
     train_transforms = t.Compose(get_transform(args['train']['transforms']))
+    validate_transforms = t.Compose(get_transform(args['validate']['transforms']))
 
     if args['train']['mode'] == 'SSRL':
         train_dataset = ScanNetVoxelized(
@@ -91,7 +94,7 @@ def train(args):
             ScanNetVoxelized,
             BundledDataset,
             bundle_path=f'{args["dataset"]["bundle_dir"]}/train.npy',
-            transforms=train_transforms,
+            transforms=validate_transforms,
             split_file_dir=args["dataset"]["split_file_dir"],
             split='val',
         )
@@ -180,8 +183,7 @@ def train(args):
             checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None)
 
         if args['train']['validate_steps'] is not None and args['train']['validate_steps'] and (step_idx + 1) % args['train']['validate_steps'] == 0:
-            if rank == 0 and args['train']['mode'] == 'Finetune':
-                validate_pass(model, val_dataloader, writer, step_idx, logging=True)
+            validate_pass(model, val_dataloader, writer if rank == 0 else None, step_idx, logging=True)
 
         data_timer.tic()
 

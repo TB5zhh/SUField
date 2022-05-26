@@ -11,12 +11,12 @@ dataset:
 train:
   mode: Finetune
   max_iter: 20000
-  batch_size: 2
+  batch_size: 12
   world_size: 2
   num_workers: 0
   logging_steps: 1
   checkpoint_steps: 1000
-  validate_steps: 5
+  validate_steps: 500
   limit_numpoints: 400000
   arch: Res16UNet34T
 
@@ -37,7 +37,7 @@ train:
   
   optimizer:
     type: SGD # SGD, Adam
-    learning_rate: 1.0e-3
+    learning_rate: 0.01
     SGD:
       momentum: 0.9
       dampening: 0.1
@@ -48,8 +48,8 @@ train:
     poly:
       power: 0.9
 validate:
-  batch_size: 1
-  num_workers: 0
+  batch_size: 12
+  num_workers: 2
   limit_numpoints: 
   transforms:
     NonNegativeTranslation: "[]"

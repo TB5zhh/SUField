@@ -212,7 +212,7 @@ class LimitedTrainValSplit(TrainValSplit):
         if self.split == 'train' and result[2] is not None:
             label_copy = torch.clone(result[2])
             result[2].fill_(255)
-            indices = result[self.map_idx][1][self.indices[index][1]] if self.map_idx is not None else self.indices[index][1]
+            indices = result[self.map_idx][1][self.indices[index][1]].long() if self.map_idx is not None else self.indices[index][1]
             result[2][indices] = label_copy[indices]
         return result
 

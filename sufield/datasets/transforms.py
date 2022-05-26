@@ -266,6 +266,7 @@ class Compose(AbstractTransform):
     def __call__(self, coords, feats, labels, *args):
         inputs = (coords, feats, labels, *args)
         for t in self.transforms:
+            logging.getLogger(__name__).debug(str(t) + ' start')
             if t.COORD_DIM == coords.shape[1]:
                 inputs = t(*inputs)
             elif t.COORD_DIM == 3 and coords.shape[1] == 4:
@@ -275,6 +276,7 @@ class Compose(AbstractTransform):
                 inputs = (coords, *misc)
             else:
                 raise NotImplementedError
+            logging.getLogger(__name__).debug(str(t) + ' end')
 
         return inputs
 

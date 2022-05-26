@@ -32,7 +32,7 @@ class ViewpointBottleneck(nn.Module):
             )
         else:
             self.criterion = nn.CrossEntropyLoss(ignore_index=255)
-            self.split_transform = t.Compose([t.ToSparseTensor()])
+            self.split_transform = t.Compose([t.ToDevice(get_rank()), t.ToSparseTensor()])
 
     def train_step(self, input):
         if self.mode == 'SSRL':
@@ -52,9 +52,12 @@ class ViewpointBottleneck(nn.Module):
             return self.criterion(logits, target.long()), None
 
     def validate_step(self, input):
+        getLogger(__name__).debug('before validate step')
         tfield, tfield_sparse, target, *_ = self.split_transform(*input)
+        getLogger(__name__).debug('after transforms')
         logits = self.fc(self.encoder(tfield_sparse)).slice(tfield).F
-        return torch.argmax(logits, dim=1)
+        getLogger(__name__).debug('after forward')
+        return torch.argmax(logits, dim=1), target
 
     def forward(self, input):
         if self.training:
