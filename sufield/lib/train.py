@@ -87,7 +87,7 @@ def train(args):
             batch_size=args['train']['batch_size'],
             num_workers=args['train']['num_workers'],
             collate_fn=cf_collate_fn_factory(args['train']['limit_numpoints']),
-            sampler=DistributedInfSampler(train_dataset, shuffle=False) if world_size > 1 else InfSampler(train_dataset),
+            sampler=DistributedInfSampler(train_dataset, shuffle=True) if world_size > 1 else InfSampler(train_dataset),
             pin_memory=True,
         )
         val_dataset = TrainValSplit(

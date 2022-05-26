@@ -10,7 +10,7 @@ dataset:
   split_file_dir: /home/tb5zhh/SUField/bundled_datasets/SCANNET/split
 train:
   mode: Finetune
-  max_iter: 20000
+  max_iter: 30000
   batch_size: 10
   world_size: 4
   num_workers: 2
