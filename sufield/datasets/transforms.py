@@ -29,7 +29,7 @@ class AbstractTransform:
     def __init__(self) -> None:
         ...
         
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         raise NotImplementedError
 
 
@@ -37,8 +37,8 @@ class ToTensor(AbstractTransform):
     def __init__(self) -> None:
         super().__init__()
     
-    def __call__(self, coords, feats, labels):
-        return torch.as_tensor(coords), torch.as_tensor(feats), torch.as_tensor(labels)
+    def __call__(self, coords, feats, labels, *args):
+        return torch.as_tensor(coords), torch.as_tensor(feats), torch.as_tensor(labels), *args
     
 
 
@@ -52,12 +52,12 @@ class ChromaticTranslation(AbstractTransform):
         self.trans_range_ratio = trans_range_ratio
         self.apply_ratio = apply_ratio
 
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         if random.random() < self.apply_ratio:
             tr = (torch.rand(1, 3, device=feats.device) - 0.5) * \
                 255 * 2 * self.trans_range_ratio
             feats[:, :3] = torch.clip(tr + feats[:, :3], 0, 255)
-        return coords, feats, labels
+        return coords, feats, labels, *args
 
 
 class ChromaticAutoContrast(AbstractTransform):
@@ -67,7 +67,7 @@ class ChromaticAutoContrast(AbstractTransform):
         self.blend_factor = blend_factor
         self.apply_ratio = apply_ratio
 
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         if random.random() < self.apply_ratio:
             # mean = np.mean(feats, 0, keepdims=True)
             # std = np.std(feats, 0, keepdims=True)
@@ -84,7 +84,7 @@ class ChromaticAutoContrast(AbstractTransform):
             blend_factor = random.random() if self.randomize_blend_factor else self.blend_factor
             feats[:, :3] = (1 - blend_factor) * feats + \
                 blend_factor * contrast_feats
-        return coords, feats, labels
+        return coords, feats, labels, *args
 
 
 class ChromaticJitter(AbstractTransform):
@@ -93,12 +93,12 @@ class ChromaticJitter(AbstractTransform):
         self.std = std
         self.apply_ratio = apply_ratio
 
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         if random.random() < self.apply_ratio:
             noise = torch.randn(feats.shape[0], 3, device=feats.device)
             noise *= self.std * 255
             feats[:, :3] = torch.clip(noise + feats[:, :3], 0, 255)
-        return coords, feats, labels
+        return coords, feats, labels, *args
 
 
 class HueSaturationTranslation():
@@ -154,7 +154,7 @@ class HueSaturationTranslation():
         self.hue_max = hue_max
         self.saturation_max = saturation_max
 
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         # Assume feat[:, :3] is rgb
         hsv = HueSaturationTranslation.rgb_to_hsv(feats[:, :3])
         hue_val = (random.random() - 0.5) * 2 * self.hue_max
@@ -163,7 +163,7 @@ class HueSaturationTranslation():
         hsv[..., 1] = np.clip(sat_ratio * hsv[..., 1], 0, 1)
         feats[:, :3] = np.clip(HueSaturationTranslation.hsv_to_rgb(hsv), 0, 255)
 
-        return coords, feats, labels
+        return coords, feats, labels, *args
 
 
 ##############################
@@ -180,13 +180,13 @@ class RandomDropout(AbstractTransform):
         self.dropout_ratio = dropout_ratio
         self.apply_ratio = apply_ratio
 
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         if random.random() < self.apply_ratio:
             N = len(coords)
             inds = sorted(np.random.choice(
                 N, int(N * (1 - self.dropout_ratio)), replace=False))
-            return coords[inds], feats[inds], labels[inds]
-        return coords, feats, labels
+            return coords[inds], feats[inds], labels[inds], (inds, )
+        return coords, feats, labels, *args
 
 
 class RandomHorizontalFlip(AbstractTransform):
@@ -202,13 +202,13 @@ class RandomHorizontalFlip(AbstractTransform):
         # Use the rest of axes for flipping.
         self.horz_axes = set(range(self.D)) - set([self.upright_axis])
 
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         if random.random() < self.apply_ratio:
             for i, curr_ax in enumerate(self.horz_axes):
                 if random.random() < self.axis_ratio[i]:
                     coord_max = torch.max(coords[:, curr_ax])
                     coords[:, curr_ax] = coord_max - coords[:, curr_ax]
-        return coords, feats, labels
+        return coords, feats, labels, *args
 
 
 class ElasticDistortion(AbstractTransform):
@@ -249,12 +249,12 @@ class ElasticDistortion(AbstractTransform):
         coords += interp(coords) * magnitude
         return coords.to(device), feats, labels
 
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         if random.random() < self.apply_ratio:
             if self.distortion_params is not None:
                 for granularity, magnitude in self.distortion_params:
                     coords, feats, labels = self.elastic_distortion(coords, feats, labels, granularity, magnitude)
-        return coords, feats, labels
+        return coords, feats, labels, *args
 
 
 class Compose(AbstractTransform):
@@ -264,17 +264,19 @@ class Compose(AbstractTransform):
         self.transforms = transforms
 
     def __call__(self, coords, feats, labels, *args):
+        inputs = (coords, feats, labels, *args)
         for t in self.transforms:
             if t.COORD_DIM == coords.shape[1]:
-                coords, feats, labels = t(coords, feats, labels)
+                inputs = t(*inputs)
             elif t.COORD_DIM == 3 and coords.shape[1] == 4:
-                indices, slim_coords = coords[:, 0:1], coords[:, 1:]
-                slim_coords, feats, labels = t(slim_coords, feats, labels)
+                indices, slim_coords = inputs[0][:, 0:1], inputs[0][:, 1:]
+                slim_coords, *misc = t(slim_coords, *inputs[1:])
                 coords = torch.cat((indices, slim_coords), dim=1)
+                inputs = (coords, *misc)
             else:
                 raise NotImplementedError
 
-        return coords, feats, labels, *args
+        return inputs
 
 class SplitCompose(object):
     def __init__(self, sync_transform, random_transform, coords_dim=3) -> None:
@@ -283,35 +285,36 @@ class SplitCompose(object):
     
     def __call__(self, coords, feats, labels, *args):
         for t in self.sync_transform:
-            coords, feats, labels = t(coords, feats, labels)
+            coords, feats, labels, *args = t(coords, feats, labels, *args)
         
         coords_a, feats_a, labels_a = coords, feats, labels
         coords_b, feats_b, labels_b = coords.clone(), feats.clone(), labels.clone()
-
+        args_a = args
+        args_b = args
         for t in self.random_transform:
             if t.COORD_DIM == coords.shape[1]:
-                coords_a, feats_a, labels_a = t(coords_a, feats_a, labels_a)
-                coords_b, feats_b, labels_b = t(coords_b, feats_b, labels_b)
+                coords_a, feats_a, labels_a, *args_a = t(coords_a, feats_a, labels_a, *args_a)
+                coords_b, feats_b, labels_b, *args_b = t(coords_b, feats_b, labels_b, *args_b)
             elif t.COORD_DIM == 3 and coords.shape[1] == 4:
                 indices_a, slim_coords_a = coords_a[:, 0:1], coords_a[:, 1:]
-                slim_coords_a, feats_a, labels_a = t(slim_coords_a, feats_a, labels_a)
+                slim_coords_a, feats_a, labels_a, *args_a = t(slim_coords_a, feats_a, labels_a, *args_a)
                 coords_a = torch.cat((indices_a, slim_coords_a), dim=1)
                 indices_b, slim_coords_b = coords_b[:, 0:1], coords_b[:, 1:]
-                slim_coords_b, feats_b, labels_b = t(slim_coords_b, feats_b, labels_b)
+                slim_coords_b, feats_b, labels_b, *args_b = t(slim_coords_b, feats_b, labels_b, *args_b)
                 coords_b = torch.cat((indices_b, slim_coords_b), dim=1)
             else:
                 raise NotImplementedError
-        return (coords_a, feats_a, labels_a), (coords_b, feats_b, labels_b), *args
+        return (coords_a, feats_a, labels_a), (coords_b, feats_b, labels_b), (args_a, args_b)
 
 
 class Voxelize(AbstractTransform):
 
-    def __init__(self, fix_map=None, voxel_size=0.05, return_map=False, apply_ratio=1.) -> None:
+    def __init__(self, fix_map=None, voxel_size=0.05, return_map=True, apply_ratio=1.) -> None:
         self.fix_map = fix_map
         self.voxel_size = voxel_size
         self.return_map = return_map
 
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         device = coords.device
         transformed_coords = coords / self.voxel_size
         if self.fix_map is None:
@@ -322,9 +325,10 @@ class Voxelize(AbstractTransform):
             voxelized_coords, voxelized_feats, voxelized_labels, indices_map, reverse_indices_map = \
                 transformed_coords[self.fix_map], feats[self.fix_map], labels[self.fix_map], self.fix_map, None
         if self.return_map:
-            return torch.as_tensor(voxelized_coords, device=device), torch.as_tensor(voxelized_feats, device=device), torch.as_tensor(voxelized_labels, device=device), torch.as_tensor(indices_map, device=device), torch.as_tensor(reverse_indices_map, device=torch.DeviceObjType),
+            # print(f"{len(coords)} -> {len(voxelized_coords)} ({len(indices_map)} / {len(reverse_indices_map)})")
+            return torch.as_tensor(voxelized_coords, device=device), torch.as_tensor(voxelized_feats, device=device), torch.as_tensor(voxelized_labels, device=device), (torch.as_tensor(indices_map, device=device), torch.as_tensor(reverse_indices_map, device=device)), *args
         else:
-            return torch.as_tensor(voxelized_coords, device=device), torch.as_tensor(voxelized_feats, device=device), torch.as_tensor(voxelized_labels, device=device)
+            return torch.as_tensor(voxelized_coords, device=device), torch.as_tensor(voxelized_feats, device=device), torch.as_tensor(voxelized_labels, device=device), *args
 
 
 class RandomRotation(AbstractTransform):
@@ -345,7 +349,7 @@ class RandomRotation(AbstractTransform):
         """
         return torch.tensor(expm(np.cross(np.eye(3), axis / norm(axis) * theta)), dtype=torch.float32, device=device)
 
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         if random.random() < self.apply_ratio:
             rotation_mat = torch.eye(3, device=coords.device)
             for axis_index, boundary in enumerate(self.boundaries):
@@ -353,14 +357,14 @@ class RandomRotation(AbstractTransform):
                 axis = self.BASE_VEC(axis_index)
                 rotation_mat = rotation_mat @ self.rotate_mat(axis, theta, coords.device)
             coords = coords @ rotation_mat.T
-        return coords, feats, labels
+        return coords, feats, labels, *args
 
 class ToSparseTensor(AbstractTransform):
     COORD_DIM = 4
     def __init__(self) -> None:
         ...
     
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         assert coords.device == feats.device
         tensor_field = ME.TensorField(
             coordinates=coords.int(),
@@ -368,14 +372,14 @@ class ToSparseTensor(AbstractTransform):
             # quantization_mode=ME.SparseTensorQuantizationMode.RANDOM_SUBSAMPLE,
             device=coords.device
         )
-        return tensor_field, tensor_field.sparse(), labels
+        return tensor_field, tensor_field.sparse(), labels, *args
 
 class ToDevice(AbstractTransform):
     def __init__(self, device) -> None:
         self.device = device
     
-    def __call__(self, coords, feats, labels):
-        return coords.to(self.device), feats.to(self.device), labels.to(self.device)
+    def __call__(self, coords, feats, labels, *args):
+        return coords.to(self.device), feats.to(self.device), labels.to(self.device), *args
 
 
 class RandomScaling(AbstractTransform):
@@ -384,21 +388,21 @@ class RandomScaling(AbstractTransform):
     ), apply_ratio=1.) -> None:
         self.boundaries = boundaries
         self.apply_ratio = apply_ratio
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         if random.random() < self.apply_ratio:
             scale = np.random.uniform(*self.boundaries)
             coords = coords * scale
-        return coords, feats, labels
+        return coords, feats, labels, *args
 
 class NonNegativeTranslation(AbstractTransform):
     def __init__(self, apply_ratio=1.) -> None:
         self.apply_ratio = apply_ratio
 
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         if random.random() < self.apply_ratio:
             min_coord = coords.min(0)[0]
             coords = coords - min_coord
-        return coords, feats, labels
+        return coords, feats, labels, *args
 
 
 class RandomTranslation(AbstractTransform):
@@ -406,14 +410,14 @@ class RandomTranslation(AbstractTransform):
         self.boundaries = boundaries
         self.apply_ratio = apply_ratio
 
-    def __call__(self, coords, feats, labels):
+    def __call__(self, coords, feats, labels, *args):
         if random.random() < self.apply_ratio:
             scales = torch.tensor([np.random.uniform(*self.boundaries[i]) for i in range(3)], device=coords.device)
             min_coord = coords.min(0)[0]
             max_coord = coords.max(0)[0]
 
             coords = coords + scales * (max_coord - min_coord)
-        return coords, feats, labels
+        return coords, feats, labels, *args
         
 class cf_collate_fn_factory:
     """Generates collate function for coords, feats, labels.

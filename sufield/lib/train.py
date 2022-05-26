@@ -2,7 +2,6 @@ import argparse
 import logging
 import os
 import shutil
-import sys
 
 import git
 import torch
@@ -13,14 +12,13 @@ from torch.utils.tensorboard import SummaryWriter
 
 from ..datasets import get_transform
 from ..datasets import transforms as t
-from ..datasets.dataset import BundledDataset, ScanNetVoxelized
+from ..datasets.dataset import BundledDataset, ScanNetVoxelized, LimitedTrainValSplit, TrainValSplit
 from ..datasets.sampler import DistributedInfSampler, InfSampler
 from ..datasets.transforms import cf_collate_fn_factory
 from ..models.viewpoint_bottleneck import ViewpointBottleneck
-from .utils import (AverageMeter, Timer, checkpoint, current_timestr,
-                    deterministic, get_args, get_rank, get_world_size,
-                    run_distributed, setup_logger)
-from .visualize import get_correlated_map
+from .utils import (AverageMeter, Timer, checkpoint, current_timestr, deterministic, get_args, get_correlated_map, get_rank, get_world_size, run_distributed,
+                    setup_logger)
+from .validate import validate_pass
 
 
 def train(args):
@@ -34,7 +32,6 @@ def train(args):
     elif args['load'] is not None:
         state_dict = torch.load(args['load'], map_location=f"cuda:{rank}")
 
-    training_args = args['training']
     deterministic(args['seed'])
     logger = logging.getLogger(__name__)
     if rank == 0:
@@ -53,63 +50,104 @@ def train(args):
     """
     Dataset, Transforms and Dataloaders
     """
-    transforms = t.Compose(get_transform(training_args['transforms']))
+    train_transforms = t.Compose(get_transform(args['train']['transforms']))
 
-    dataset_args = training_args['dataset']
-    dataset = ScanNetVoxelized(BundledDataset, bundle_path=f'{dataset_args["bundle_dir"]}/train.npy', transforms=transforms)
+    if args['train']['mode'] == 'SSRL':
+        train_dataset = ScanNetVoxelized(
+            BundledDataset,
+            bundle_path=f'{args["dataset"]["bundle_dir"]}/train.npy',
+            transforms=train_transforms,
+        )
 
-    dataloader = DataLoader(dataset,
-                            batch_size=training_args['batch_size'],
-                            num_workers=training_args['num_workers'],
-                            collate_fn=cf_collate_fn_factory(training_args['limit_numpoints']),
-                            sampler=DistributedInfSampler(dataset) if world_size > 1 else InfSampler(dataset),
-                            pin_memory=True)
+        train_dataloader = DataLoader(
+            train_dataset,
+            batch_size=args['train']['batch_size'],
+            num_workers=args['train']['num_workers'],
+            collate_fn=cf_collate_fn_factory(args['train']['limit_numpoints']),
+            sampler=DistributedInfSampler(train_dataset) if world_size > 1 else InfSampler(train_dataset),
+            pin_memory=True,
+        )
+    elif args['train']['mode'] == 'Finetune':
+        train_dataset = LimitedTrainValSplit(
+            ScanNetVoxelized,
+            BundledDataset,
+            bundle_path=f'{args["dataset"]["bundle_dir"]}/train.npy',
+            transforms=train_transforms,
+            annotate_idx_dir=args["dataset"]["annotate_index_dir"],
+            split_file_dir=args["dataset"]["split_file_dir"],
+            split='train',
+            size=args["train"]["annotation_count"],
+            map_idx=3,
+        )
+        train_dataloader = DataLoader(
+            train_dataset,
+            batch_size=args['train']['batch_size'],
+            num_workers=args['train']['num_workers'],
+            collate_fn=cf_collate_fn_factory(args['train']['limit_numpoints']),
+            sampler=DistributedInfSampler(train_dataset, shuffle=False) if world_size > 1 else InfSampler(train_dataset),
+            pin_memory=True,
+        )
+        val_dataset = TrainValSplit(
+            ScanNetVoxelized,
+            BundledDataset,
+            bundle_path=f'{args["dataset"]["bundle_dir"]}/train.npy',
+            transforms=train_transforms,
+            split_file_dir=args["dataset"]["split_file_dir"],
+            split='val',
+        )
+        val_dataloader = DataLoader(
+            val_dataset,
+            batch_size=args['validate']['batch_size'],
+            num_workers=args['validate']['num_workers'],
+            collate_fn=cf_collate_fn_factory(args['validate']['limit_numpoints']),
+            shuffle=False,
+            pin_memory=True,
+        )
+
     logger.debug('Dataset and dataloader init')
     """
     Models
     """
-    model = ViewpointBottleneck(training_args['arch'], training_args['mode'])
+    model = ViewpointBottleneck(args['train']['arch'], args['train']['mode'])
     model.cuda()
     logger.debug('Model init')
     """
-    Optimizer and Scheduler
+    Optimizer and Scheduler and AMP Scaler
     """
-    optimizer_args = training_args['optimizer']
-    if optimizer_args['type'] == 'SGD':
+    if args['train']['optimizer']['type'] == 'SGD':
         optimizer = optim.SGD(model.parameters(),
-                              lr=optimizer_args['learning_rate'],
-                              momentum=optimizer_args['SGD']['momentum'],
-                              dampening=optimizer_args['SGD']['dampening'],
-                              weight_decay=optimizer_args['SGD']['dampening'])
+                              lr=args['train']['optimizer']['learning_rate'],
+                              momentum=args['train']['optimizer']['SGD']['momentum'],
+                              dampening=args['train']['optimizer']['SGD']['dampening'],
+                              weight_decay=args['train']['optimizer']['SGD']['dampening'])
     else:
         raise NotImplementedError
 
-    scheduler_args = training_args['scheduler']
-    if scheduler_args['type'] == 'Polynomial':
+    if args['train']['scheduler']['type'] == 'Polynomial':
         scheduler = optim.lr_scheduler.LambdaLR(
             optimizer,
-            lambda epoch: (1 - epoch / training_args['max_iter'])**scheduler_args['poly']['power'],
+            lambda epoch: (1 - epoch / args['train']['max_iter'])**args['train']['scheduler']['poly']['power'],
         )
-    # """
-    # TODO Resuming
-    # """
+    scaler = torch.cuda.amp.GradScaler()
+    """
+    Resuming from checkpoints and DDP
+    """
     start_step = 0
     if args['resume'] is not None:
         model.load_state_dict(state_dict['model'])
         optimizer.load_state_dict(state_dict['optimizer'])
         scheduler.load_state_dict(state_dict['scheduler'])
+        scaler.load_state_dict(state_dict['scaler'])
         start_step = state_dict['step'] + 1
     elif args['load'] is not None:
         model.load_state_dict(state_dict['model'])
-
-    # """
-    # Training starts
-    # """
     if world_size > 1:
         model = DistributedDataParallel(model, device_ids=[rank], find_unused_parameters=True)
-    logger.debug(f'Start loop: one epoch has {len(dataloader)} steps')
-    scaler = torch.cuda.amp.GradScaler()
-    for step_idx, sample in zip(range(start_step, training_args['max_iter']), dataloader):
+    """
+    Training starts
+    """
+    logger.debug(f'Start loop: one epoch has {len(train_dataloader)} steps')
+    for step_idx, sample in zip(range(start_step, args['train']['max_iter']), train_dataloader):
         data_timer.toc()
 
         fw_timer.tic()
@@ -127,22 +165,23 @@ def train(args):
         loss_avg.update(loss.item())
         bw_timer.toc()
 
-        if training_args['logging_steps'] is not None and training_args['logging_steps'] > 0 and (step_idx + 1) % training_args['logging_steps'] == 0:
-            logger.info(f"Step {step_idx:6d}/{training_args['max_iter']} "
+        if args['train']['logging_steps'] is not None and args['train']['logging_steps'] > 0 and (step_idx + 1) % args['train']['logging_steps'] == 0:
+            logger.info(f"Step {step_idx:6d}/{args['train']['max_iter']} "
                         f"Loss: {loss.item():.4f}({loss_avg.avg:.4f}) "
                         f"Data time: {data_timer.diff:.2f} "
                         f"Forward time: {fw_timer.diff:.2f} "
                         f"Backward time: {bw_timer.diff:.2f} ")
         if rank == 0:
-            writer.add_scalar(f'Loss/{training_args["mode"]}', loss.item(), step_idx)
-            if training_args['mode'] == 'SSRL':
+            writer.add_scalar(f'Loss/{args["train"]["mode"]}', loss.item(), step_idx)
+            if args['train']['mode'] == 'SSRL':
                 writer.add_image(f'Correlated Map', get_correlated_map(ret**0.1), dataformats='HWC', global_step=step_idx)
 
-        if training_args['checkpoint_steps'] is not None and training_args['checkpoint_steps'] > 0 and (step_idx + 1) % training_args['checkpoint_steps'] == 0:
+        if args['train']['checkpoint_steps'] is not None and args['train']['checkpoint_steps'] > 0 and (step_idx + 1) % args['train']['checkpoint_steps'] == 0:
             checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None)
 
-        if training_args['validate_steps'] is not None and training_args['validate_steps'] and (step_idx + 1) % training_args['validate_steps'] == 0:
-            raise NotImplementedError
+        if args['train']['validate_steps'] is not None and args['train']['validate_steps'] and (step_idx + 1) % args['train']['validate_steps'] == 0:
+            if rank == 0 and args['train']['mode'] == 'Finetune':
+                validate_pass(model, val_dataloader, writer, step_idx, logging=True)
 
         data_timer.tic()
 
@@ -164,4 +203,4 @@ if __name__ == '__main__':
         os.makedirs(args['output_dir'], exist_ok=True)
         shutil.copy(cfg_path, args['output_dir'] + '/config.yaml')
         args['resume'] = None
-    run_distributed(args['training']['world_size'], train, args)
+    run_distributed(args['train']['world_size'], train, args)

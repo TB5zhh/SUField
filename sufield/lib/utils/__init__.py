@@ -5,3 +5,4 @@ from .logger import *
 from .meters import *
 from .random import *
 from .time import *
+from .visualize import *

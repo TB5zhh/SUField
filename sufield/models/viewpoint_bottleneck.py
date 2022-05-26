@@ -1,9 +1,8 @@
-from cProfile import label
 from logging import getLogger
 
 import pointnet2._ext as p2
 import torch
-from torch import nn
+from torch import logit, nn
 
 from ..datasets import transforms as t
 from ..lib.utils.distributed import get_rank
@@ -53,7 +52,9 @@ class ViewpointBottleneck(nn.Module):
             return self.criterion(logits, target.long()), None
 
     def validate_step(self, input):
-        pass
+        tfield, tfield_sparse, target, *_ = self.split_transform(*input)
+        logits = self.fc(self.encoder(tfield_sparse)).slice(tfield).F
+        return torch.argmax(logits, dim=1)
 
     def forward(self, input):
         if self.training:

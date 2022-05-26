@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 
 from sufield.lib.utils.distributed import get_rank
 
-from ..lib.visualize import dump_points_with_labels
+from ..lib.utils.visualize import dump_points_with_labels
 
 from . import transforms as t
 
@@ -175,20 +175,20 @@ class TrainValSplit(Dynamic):
         self.split = kwargs['split']
         with open(f"{split_file_dir}/scannetv2_train.txt") as f:
             train_list = [i.strip() for i in f.readlines()]
-            self.length = len(train_list)
         with open(f"{split_file_dir}/scannetv2_val.txt") as f:
             val_list = [i.strip() for i in f.readlines()]
-            self.length = len(val_list)
         with open(f"{split_file_dir}/scannetv2_test.txt") as f:
             test_list = [i.strip() for i in f.readlines()]
-            self.length = len(test_list)
         full_list = sorted([*[(i, 0) for i in train_list], *[(i, 1) for i in val_list]], key=lambda x: x[0])
         if self.split == 'train':
             self.idx_map = [idx for idx, i in enumerate(full_list) if i[1] == 0]
+            self.length = len(train_list)
         elif self.split == 'val':
             self.idx_map = [idx for idx, i in enumerate(full_list) if i[1] == 1]
+            self.length = len(val_list)
         elif self.split == 'test':
             self.idx_map = [i for i in range(len(test_list))]
+            self.length = len(test_list)
 
     def __getitem__(self, index):
         return super().__getitem__(self.idx_map[index])
@@ -197,12 +197,13 @@ class TrainValSplit(Dynamic):
         return self.length
 
 
-class Limited(TrainValSplit):
+class LimitedTrainValSplit(TrainValSplit):
 
     def __init__(self, cls, *args, **kwargs) -> None:
         super().__init__(cls, *args, **kwargs)
         self.split_dir = kwargs['annotate_idx_dir']
         self.limited_size = int(kwargs['size'])
+        self.map_idx = int(kwargs['map_idx']) if 'map_idx' in kwargs.keys() else None
         self.label_indices = torch.load(f"{self.split_dir}/points{self.limited_size}")
         self.indices = [(k, v) for k, v in sorted(self.label_indices.items(), key=lambda i: i[0])]
 
@@ -211,8 +212,8 @@ class Limited(TrainValSplit):
         if self.split == 'train' and result[2] is not None:
             label_copy = torch.clone(result[2])
             result[2].fill_(255)
-            print(self.indices[index][0])
-            result[2][self.indices[index][1]] = label_copy[self.indices[index][1]]
+            indices = result[self.map_idx][1][self.indices[index][1]] if self.map_idx is not None else self.indices[index][1]
+            result[2][indices] = label_copy[indices]
         return result
 
 
@@ -239,22 +240,21 @@ def test():
     #     bundle_path='/home/tb5zhh/SUField/bundled_datasets/SCANNET/train.npy',
     #     transforms=transforms,
     # )
-    dataset = Limited(
+    dataset = LimitedTrainValSplit(
         ScanNetVoxelized,
         BundledDataset,
         bundle_path='/home/tb5zhh/SUField/bundled_datasets/SCANNET/train.npy',
         transforms=transforms,
         annotate_idx_dir='/home/tb5zhh/SUField/bundled_datasets/SCANNET/limited_annotation',
-        size=20,
+        size=200,
         split_file_dir='/home/tb5zhh/SUField/bundled_datasets/SCANNET/split',
         split='train',
     )
     with open('/home/tb5zhh/SUField/bundled_datasets/SCANNET/split/scannetv2_train.txt') as f:
         l = sorted([i.strip() for i in f.readlines()])
-    for i in range(100):
-        idx = randint(0, 1000)
-        print(l[idx])
+    for idx in range(1201):
         result = dataset[idx]
+        print(l[idx])
         print((result[2]!=255).sum())
         # dump_points_with_labels(result[0], result[2], 'voxelized.txt')
 

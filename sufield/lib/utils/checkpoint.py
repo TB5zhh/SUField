@@ -10,6 +10,7 @@ def checkpoint(args: dict,
                scheduler: torch.optim.lr_scheduler._LRScheduler,
                step: int,
                metrics: dict,
+               scaler: torch.cuda.amp.GradScaler,
                suffix: str = None):
     if get_rank() == 0:
         state_dict = {
@@ -18,6 +19,7 @@ def checkpoint(args: dict,
             'scheduler': scheduler.state_dict(),
             'step': step,
             'metrics': metrics,
+            'scaler': scaler.state_dict(),
             'args': args,
         }
         prefix = f'step#{step}' if suffix is None else suffix

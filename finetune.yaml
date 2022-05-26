@@ -1,4 +1,4 @@
-exp_name: viewpoint_bottleneck_scannet_ssrl
+exp_name: viewpoint_bottleneck_scannet_finetune_wo_pretrain
 log_root_dir: logs
 load:
 seed: 42
@@ -9,14 +9,14 @@ dataset:
   annotate_index_dir: /home/tb5zhh/SUField/bundled_datasets/SCANNET/limited_annotation
   split_file_dir: /home/tb5zhh/SUField/bundled_datasets/SCANNET/split
 train:
-  mode: SSRL
-  max_iter: 100000
-  batch_size: 12
+  mode: Finetune
+  max_iter: 20000
+  batch_size: 2
   world_size: 2
-  num_workers: 2
-  logging_steps: 10
+  num_workers: 0
+  logging_steps: 1
   checkpoint_steps: 1000
-  validate_steps: 0
+  validate_steps: 5
   limit_numpoints: 400000
   arch: Res16UNet34T
 
@@ -29,7 +29,6 @@ train:
     RandomScaling: "[]"
     NonNegativeTranslation: "[]"
     Voxelize: "[]"
-    RandomDropout: "[0.5, 1]"
     RandomHorizontalFlip: "['z']"
     ChromaticAutoContrast: "[]"
     ChromaticTranslation: "[]"
@@ -50,5 +49,8 @@ train:
       power: 0.9
 validate:
   batch_size: 1
-  num_workers: 1
+  num_workers: 0
   limit_numpoints: 
+  transforms:
+    NonNegativeTranslation: "[]"
+    Voxelize: "[]"
