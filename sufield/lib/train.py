@@ -149,7 +149,7 @@ def train(args):
     """
     Training starts
     """
-    logger.debug(f'Start loop: one epoch has {len(train_dataloader)} steps')
+    logger.info(f'Start loop: one epoch has {len(train_dataloader)} steps')
     for step_idx, sample in zip(range(start_step, args['train']['max_iter']), train_dataloader):
         data_timer.toc()
 
