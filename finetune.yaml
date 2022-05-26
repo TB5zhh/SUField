@@ -16,7 +16,7 @@ train:
   num_workers: 2
   logging_steps: 10
   checkpoint_steps: 1000
-  validate_steps: 500
+  validate_steps: 5
   limit_numpoints: 400000
   arch: Res16UNet34T
 
