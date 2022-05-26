@@ -182,6 +182,7 @@ def train(args):
 
         if args['train']['checkpoint_steps'] is not None and args['train']['checkpoint_steps'] > 0 and (step_idx + 1) % args['train']['checkpoint_steps'] == 0:
             checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None, scaler)
+        checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, 'latest', scaler)
 
         if args['train']['validate_steps'] is not None and args['train']['validate_steps'] and (step_idx + 1) % args['train']['validate_steps'] == 0:
             validate_pass(model, val_dataloader, writer if rank == 0 else None, step_idx, logging=True)
