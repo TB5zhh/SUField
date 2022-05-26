@@ -42,7 +42,8 @@ def train(args):
         repo = git.Repo(search_parent_directories=True)
         logger.info("Current commit id: " + repo.head.commit.hexsha)
         if repo.is_dirty():
-            logger.warning("There are uncommited changes in this repo. It is recommended to commit changes before running experiments")
+            logger.error("There are uncommited changes in this repo. Please commit changes before running experiments")
+            raise RuntimeError
     logger.debug('Train func start')
     """
     Timers and Meters
