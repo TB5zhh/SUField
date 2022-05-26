@@ -16,7 +16,7 @@ train:
   num_workers: 2
   logging_steps: 10
   checkpoint_steps: 1000
-  validate_steps: 5
+  validate_steps: 100
   limit_numpoints: 400000
   arch: Res16UNet34T
 
@@ -37,7 +37,7 @@ train:
   
   optimizer:
     type: SGD # SGD, Adam
-    learning_rate: 0.01
+    learning_rate: 0.001
     SGD:
       momentum: 0.9
       dampening: 0.1
