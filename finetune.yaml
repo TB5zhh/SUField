@@ -1,4 +1,4 @@
-exp_name: viewpoint_bottleneck_scannet_finetune_wo_pretrain
+exp_name: viewpoint_bottleneck_scannet_finetune_wo_pretrain_200
 log_root_dir: logs
 load:
 seed: 42
@@ -13,14 +13,14 @@ train:
   max_iter: 20000
   batch_size: 12
   world_size: 2
-  num_workers: 0
-  logging_steps: 1
+  num_workers: 2
+  logging_steps: 10
   checkpoint_steps: 1000
   validate_steps: 500
   limit_numpoints: 400000
   arch: Res16UNet34T
 
-  annotation_count: 20
+  annotation_count: 200
   
   transforms:
     ElasticDistortion: "[[[0.2, 0.4], [0.8, 1.6]]]"
