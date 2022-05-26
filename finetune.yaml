@@ -48,7 +48,7 @@ train:
     poly:
       power: 0.9
 validate:
-  batch_size: 12
+  batch_size: 8
   num_workers: 2
   limit_numpoints: 
   transforms:
