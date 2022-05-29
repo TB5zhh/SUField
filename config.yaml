@@ -10,12 +10,14 @@ dataset:
   split_file_dir: /home/aidrive/tb5zhh/vibus/SUField/bundled_datasets/SCANNET/split
 train:
   mode: SSRL
-  max_iter: 100000
+  max_iter: 40000
   batch_size: 30
   world_size: 2
-  num_workers: 2
-  logging_steps: 10
+  num_workers: 4
+  amp: no
+  logging_steps: 1
   checkpoint_steps: 1000
+  save_steps: 100
   validate_steps: 0
   limit_numpoints: 
   arch: Res16UNet34T

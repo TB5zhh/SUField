@@ -429,7 +429,7 @@ class cf_collate_fn_factory:
                          size so that the number of input coordinates is below limit_numpoints.
     """
 
-    def __init__(self, limit_numpoints, device='cuda'):
+    def __init__(self, limit_numpoints, device=None):
         self.limit_numpoints = limit_numpoints
         self.device = device
 
@@ -439,9 +439,10 @@ class cf_collate_fn_factory:
         batch_id = 0
         batch_num_points = 0
         for batch_id, (coords, feats, labels, *_) in enumerate(list_data):
-            coords = coords.to(coords.device)
-            feats = feats.to(feats.device)
-            labels = labels.to(labels.device)
+            if self.device is not None:
+                coords = coords.to(coords.device)
+                feats = feats.to(feats.device)
+                labels = labels.to(labels.device)
             num_points = coords.shape[0]
             batch_num_points += num_points
             if self.limit_numpoints is not None and batch_num_points > self.limit_numpoints:

@@ -7,6 +7,7 @@ import git
 import torch
 from torch import optim
 from torch.nn.parallel import DistributedDataParallel
+import torch.profiler
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -87,7 +88,7 @@ def train(args):
             train_dataset,
             batch_size=args['train']['batch_size'],
             num_workers=args['train']['num_workers'],
-            collate_fn=cf_collate_fn_factory(args['train']['limit_numpoints']),
+            collate_fn=cf_collate_fn_factory(args['train']['limit_numpoints'], device=f"cuda:{rank}"),
             sampler=DistributedInfSampler(train_dataset, shuffle=True) if world_size > 1 else InfSampler(train_dataset),
             pin_memory=True,
         )
@@ -103,7 +104,7 @@ def train(args):
             val_dataset,
             batch_size=args['validate']['batch_size'],
             num_workers=args['validate']['num_workers'],
-            collate_fn=cf_collate_fn_factory(args['validate']['limit_numpoints']),
+            collate_fn=cf_collate_fn_factory(args['validate']['limit_numpoints'], device=f"cuda:{rank}"),
             shuffle=False,
             pin_memory=True,
         )
@@ -150,44 +151,59 @@ def train(args):
     """
     Training starts
     """
-    logger.info(f'Start loop: one epoch has {len(train_dataloader)} steps')
-    for step_idx, sample in zip(range(start_step, args['train']['max_iter']), train_dataloader):
-        data_timer.toc()
+    with torch.profiler.profile(
+        activities=[
+            torch.profiler.ProfilerActivity.CPU,
+            torch.profiler.ProfilerActivity.CUDA],
+        schedule=torch.profiler.schedule(
+            wait=1,
+            warmup=1,
+            active=2),
+        on_trace_ready=torch.profiler.tensorboard_trace_handler(f"{args['output_dir']}/tensorboard", worker_name=f'worker'),
+        record_shapes=True,
+        profile_memory=True,  # This will take 1 to 2 minutes. Setting it to False could greatly speedup.
+        with_stack=True
+    ) as p:
+        logger.info(f'Start loop: one epoch has {len(train_dataloader)} steps')
+        for step_idx, sample in zip(range(start_step, args['train']['max_iter']), train_dataloader):
+            data_timer.toc()
 
-        fw_timer.tic()
-        with torch.cuda.amp.autocast():
-            loss, ret = model(sample)
-        fw_timer.toc()
+            fw_timer.tic()
+            with torch.cuda.amp.autocast(args['train']['amp']):
+                loss, ret = model(sample)
+            fw_timer.toc()
 
-        bw_timer.tic()
-        assert loss.item() != float('nan')
-        optimizer.zero_grad()
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-        scheduler.step()
-        loss_avg.update(loss.item())
-        bw_timer.toc()
+            bw_timer.tic()
+            assert loss.item() != float('nan')
+            optimizer.zero_grad()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            scheduler.step()
+            loss_avg.update(loss.item())
+            bw_timer.toc()
 
-        if args['train']['logging_steps'] is not None and args['train']['logging_steps'] > 0 and (step_idx + 1) % args['train']['logging_steps'] == 0:
-            logger.info(f"Step {step_idx:6d}/{args['train']['max_iter']} "
-                        f"Loss: {loss.item():.4f}({loss_avg.avg:.4f}) "
-                        f"Data time: {data_timer.diff:.2f} "
-                        f"Forward time: {fw_timer.diff:.2f} "
-                        f"Backward time: {bw_timer.diff:.2f} ")
-        if rank == 0:
-            writer.add_scalar(f'Loss/{args["train"]["mode"]}', loss.item(), step_idx)
-            if args['train']['mode'] == 'SSRL':
-                writer.add_image(f'Correlated Map', get_correlated_map(ret**0.1), dataformats='HWC', global_step=step_idx)
+            if args['train']['logging_steps'] is not None and args['train']['logging_steps'] > 0 and (step_idx + 1) % args['train']['logging_steps'] == 0:
+                logger.info(f"Step {step_idx:6d}/{args['train']['max_iter']} "
+                            f"Loss: {loss.item():.4f}({loss_avg.avg:.4f}) "
+                            f"Data time: {data_timer.diff:.2f} "
+                            f"Forward time: {fw_timer.diff:.2f} "
+                            f"Backward time: {bw_timer.diff:.2f} ")
+            if rank == 0:
+                writer.add_scalar(f'Loss/{args["train"]["mode"]}', loss.item(), step_idx)
+                if args['train']['mode'] == 'SSRL':
+                    writer.add_image(f'Correlated Map', get_correlated_map(ret**0.1), dataformats='HWC', global_step=step_idx)
 
-        if args['train']['checkpoint_steps'] is not None and args['train']['checkpoint_steps'] > 0 and (step_idx + 1) % args['train']['checkpoint_steps'] == 0:
-            checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None, scaler)
-        checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None, scaler, 'latest')
+            if args['train']['checkpoint_steps'] is not None and args['train']['checkpoint_steps'] > 0 and (step_idx + 1) % args['train']['checkpoint_steps'] == 0:
+                checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None, scaler)
+            if args['train']['save_steps'] is not None and args['train']['save_steps'] > 0 and (step_idx + 1) % args['train']['save_steps'] == 0:
+                checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None, scaler, 'latest')
 
-        if args['train']['validate_steps'] is not None and args['train']['validate_steps'] and (step_idx + 1) % args['train']['validate_steps'] == 0:
-            validate_pass(model, val_dataloader, writer if rank == 0 else None, step_idx, logging=True)
+            if args['train']['validate_steps'] is not None and args['train']['validate_steps'] and (step_idx + 1) % args['train']['validate_steps'] == 0:
+                validate_pass(model, val_dataloader, writer if rank == 0 else None, step_idx, logging=True)
 
-        data_timer.tic()
+            p.step()
+            data_timer.tic()
 
 
 if __name__ == '__main__':
