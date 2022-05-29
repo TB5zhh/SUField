@@ -10,7 +10,7 @@ dataset:
   split_file_dir: /home/aidrive/tb5zhh/vibus/SUField/bundled_datasets/SCANNET/split
 train:
   mode: SSRL
-  max_iter: 40000
+  max_iter: 20000
   batch_size: 30
   world_size: 2
   num_workers: 4
@@ -40,7 +40,7 @@ train:
   
   optimizer:
     type: SGD # SGD, Adam
-    learning_rate: 1.0e-3
+    learning_rate: 1.0e-2
     SGD:
       momentum: 0.9
       dampening: 0.1
