@@ -17,7 +17,7 @@ train:
   logging_steps: 10
   checkpoint_steps: 1000
   validate_steps: 0
-  limit_numpoints: 400000
+  limit_numpoints: 
   arch: Res16UNet34T
 
   annotation_count: 20
