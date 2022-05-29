@@ -265,21 +265,23 @@ class Compose(AbstractTransform):
 
     def __call__(self, coords, feats, labels, *args):
         with torch.no_grad():
-            inputs = (coords, feats, labels, *args)
             for t in self.transforms:
                 logging.getLogger(__name__).debug(str(t) + ' start')
                 if t.COORD_DIM == coords.shape[1]:
-                    inputs = t(*inputs)
+                    coords, feats, labels, *args = t(coords, feats, labels, *args)
                 elif t.COORD_DIM == 3 and coords.shape[1] == 4:
-                    indices, slim_coords = inputs[0][:, 0:1], inputs[0][:, 1:]
-                    slim_coords, *misc = t(slim_coords, *inputs[1:])
-                    coords = torch.cat((indices, slim_coords), dim=1)
-                    inputs = (coords, *misc)
+                    indices, slim_coords = coords[:, 0:1], coords[:, 1:]
+                    slim_coords, feats, labels, *args = t(slim_coords, feats, labels, *args)
+                    coords = torch.cat((indices.to(slim_coords.device), slim_coords), dim=1)
+                    # inputs = (coords, feats, labels, *args)
                 else:
+                    logging.getLogger(__name__).debug(t)
+                    logging.getLogger(__name__).debug(t.COORD_DIM)
+                    logging.getLogger(__name__).debug(coords.shape)
                     raise NotImplementedError
                 logging.getLogger(__name__).debug(str(t) + ' end')
 
-        return inputs
+        return coords, feats, labels, *args
 
 class SplitCompose(object):
     def __init__(self, sync_transform, random_transform, coords_dim=3) -> None:
@@ -431,7 +433,7 @@ class cf_collate_fn_factory:
                          size so that the number of input coordinates is below limit_numpoints.
     """
 
-    def __init__(self, limit_numpoints, device=None):
+    def __init__(self, limit_numpoints=None, device=None):
         self.limit_numpoints = limit_numpoints
         self.device = device
 

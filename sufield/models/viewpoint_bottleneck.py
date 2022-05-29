@@ -22,7 +22,7 @@ class ViewpointBottleneck(nn.Module):
         if mode == 'SSRL':
             self.criterion = BarlowTwinsLoss() if criterion == 'BarlowTwinsLoss' else VICRegLoss()
             self.split_transform = t.SplitCompose(
-                sync_transform=[t.ToDevice(get_rank())],
+                sync_transform=[],
                 random_transform=[
                     t.RandomRotation(),
                     t.RandomTranslation(),
@@ -32,7 +32,7 @@ class ViewpointBottleneck(nn.Module):
             )
         else:
             self.criterion = nn.CrossEntropyLoss(ignore_index=255)
-            self.split_transform = t.Compose([t.ToDevice(get_rank()), t.ToSparseTensor()])
+            self.split_transform = t.Compose([t.ToSparseTensor()])
 
     def train_step(self, input):
         if self.mode == 'SSRL':
