@@ -17,7 +17,7 @@ train:
   amp: yes
   logging_steps: 10
   checkpoint_steps: 1000
-  save_steps: 1
+  save_steps: 10
   validate_steps: 100
   limit_numpoints: 400000
   arch: Res16UNet34T

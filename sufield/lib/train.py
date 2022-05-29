@@ -169,22 +169,21 @@ def train(args):
         loss_avg.update(loss.item())
         bw_timer.toc()
 
-        if rank == 0:
-            writer.add_scalar(f'Loss/{args["train"]["mode"]}', loss.item(), step_idx)
-            if args['train']['mode'] == 'SSRL':
-                writer.add_image(f'Correlated Map', get_correlated_map(ret**0.1), dataformats='HWC', global_step=step_idx)
-
         if args['train']['checkpoint_steps'] is not None and args['train']['checkpoint_steps'] > 0 and (step_idx + 1) % args['train']['checkpoint_steps'] == 0:
             checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None, scaler)
         if args['train']['save_steps'] is not None and args['train']['save_steps'] > 0 and (step_idx + 1) % args['train']['save_steps'] == 0:
             checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None, scaler, 'latest')
-
         if args['train']['validate_steps'] is not None and args['train']['validate_steps'] and (step_idx + 1) % args['train']['validate_steps'] == 0:
             validate_pass(model, val_dataloader, writer if rank == 0 else None, step_idx, logging=True)
         step_timer.toc()
+        if rank == 0:
+            writer.add_scalar(f'Loss/{args["train"]["mode"]}', loss.item(), step_idx)
+            if args['train']['mode'] == 'SSRL':
+                writer.add_image(f'Correlated Map', get_correlated_map(ret**0.1), dataformats='HWC', global_step=step_idx)
         if args['train']['logging_steps'] is not None and args['train']['logging_steps'] > 0 and (step_idx + 1) % args['train']['logging_steps'] == 0:
             logger.info(f"Step {step_idx:6d}/{args['train']['max_iter']} "
                         f"Loss: {loss.item():.4f}({loss_avg.avg:.4f}) "
+                        f"Learning rate: {scheduler.get_last_lr()[0]:.2f} "
                         f"Step time: {step_timer.diff:.2f} "
                         f"Data time: {data_timer.diff:.2f} "
                         f"Forward time: {fw_timer.diff:.2f} "
