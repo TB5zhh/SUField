@@ -10,12 +10,14 @@ dataset:
   split_file_dir: /home/tb5zhh/SUField/bundled_datasets/SCANNET/split
 train:
   mode: Finetune
-  max_iter: 30000
+  max_iter: 20000
   batch_size: 10
   world_size: 4
   num_workers: 2
+  amp: yes
   logging_steps: 10
   checkpoint_steps: 1000
+  save_steps: 1
   validate_steps: 100
   limit_numpoints: 400000
   arch: Res16UNet34T
@@ -37,7 +39,7 @@ train:
   
   optimizer:
     type: SGD # SGD, Adam
-    learning_rate: 0.1
+    learning_rate: 0.01
     SGD:
       momentum: 0.9
       dampening: 0.1
