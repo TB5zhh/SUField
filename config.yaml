@@ -3,16 +3,16 @@ log_root_dir: logs
 load:
 seed: 42
 dataset:
-  bundle_dir: /home/tb5zhh/SUField/bundled_datasets/SCANNET
-  data_list: /home/tb5zhh/SUField/datasets/ScanNetv2_train_data.txt
-  label_list: /home/tb5zhh/SUField/datasets/ScanNetv2_train_labels.txt
-  annotate_index_dir: /home/tb5zhh/SUField/bundled_datasets/SCANNET/limited_annotation
-  split_file_dir: /home/tb5zhh/SUField/bundled_datasets/SCANNET/split
+  bundle_dir: /home/aidrive/tb5zhh/vibus/SUField/bundled_datasets/SCANNET
+  data_list: /home/aidrive/tb5zhh/vibus/SUField/datasets/ScanNetv2_train_data.txt
+  label_list: /home/aidrive/tb5zhh/vibus/SUField/datasets/ScanNetv2_train_labels.txt
+  annotate_index_dir: /home/aidrive/tb5zhh/vibus/SUField/bundled_datasets/SCANNET/limited_annotation
+  split_file_dir: /home/aidrive/tb5zhh/vibus/SUField/bundled_datasets/SCANNET/split
 train:
   mode: SSRL
   max_iter: 100000
-  batch_size: 10
-  world_size: 4
+  batch_size: 30
+  world_size: 2
   num_workers: 2
   logging_steps: 10
   checkpoint_steps: 1000
