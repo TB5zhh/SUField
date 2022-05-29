@@ -40,7 +40,7 @@ train:
   
   optimizer:
     type: SGD # SGD, Adam
-    learning_rate: 1.0e-2
+    learning_rate: 1.0e-3
     SGD:
       momentum: 0.9
       dampening: 0.1
