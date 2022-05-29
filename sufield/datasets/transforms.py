@@ -264,19 +264,20 @@ class Compose(AbstractTransform):
         self.transforms = transforms
 
     def __call__(self, coords, feats, labels, *args):
-        inputs = (coords, feats, labels, *args)
-        for t in self.transforms:
-            logging.getLogger(__name__).debug(str(t) + ' start')
-            if t.COORD_DIM == coords.shape[1]:
-                inputs = t(*inputs)
-            elif t.COORD_DIM == 3 and coords.shape[1] == 4:
-                indices, slim_coords = inputs[0][:, 0:1], inputs[0][:, 1:]
-                slim_coords, *misc = t(slim_coords, *inputs[1:])
-                coords = torch.cat((indices, slim_coords), dim=1)
-                inputs = (coords, *misc)
-            else:
-                raise NotImplementedError
-            logging.getLogger(__name__).debug(str(t) + ' end')
+        with torch.no_grad():
+            inputs = (coords, feats, labels, *args)
+            for t in self.transforms:
+                logging.getLogger(__name__).debug(str(t) + ' start')
+                if t.COORD_DIM == coords.shape[1]:
+                    inputs = t(*inputs)
+                elif t.COORD_DIM == 3 and coords.shape[1] == 4:
+                    indices, slim_coords = inputs[0][:, 0:1], inputs[0][:, 1:]
+                    slim_coords, *misc = t(slim_coords, *inputs[1:])
+                    coords = torch.cat((indices, slim_coords), dim=1)
+                    inputs = (coords, *misc)
+                else:
+                    raise NotImplementedError
+                logging.getLogger(__name__).debug(str(t) + ' end')
 
         return inputs
 
@@ -286,27 +287,28 @@ class SplitCompose(object):
         self.random_transform = random_transform
     
     def __call__(self, coords, feats, labels, *args):
-        for t in self.sync_transform:
-            coords, feats, labels, *args = t(coords, feats, labels, *args)
-        
-        coords_a, feats_a, labels_a = coords, feats, labels
-        coords_b, feats_b, labels_b = coords.clone(), feats.clone(), labels.clone()
-        args_a = args
-        args_b = args
-        for t in self.random_transform:
-            if t.COORD_DIM == coords.shape[1]:
-                coords_a, feats_a, labels_a, *args_a = t(coords_a, feats_a, labels_a, *args_a)
-                coords_b, feats_b, labels_b, *args_b = t(coords_b, feats_b, labels_b, *args_b)
-            elif t.COORD_DIM == 3 and coords.shape[1] == 4:
-                indices_a, slim_coords_a = coords_a[:, 0:1], coords_a[:, 1:]
-                slim_coords_a, feats_a, labels_a, *args_a = t(slim_coords_a, feats_a, labels_a, *args_a)
-                coords_a = torch.cat((indices_a, slim_coords_a), dim=1)
-                indices_b, slim_coords_b = coords_b[:, 0:1], coords_b[:, 1:]
-                slim_coords_b, feats_b, labels_b, *args_b = t(slim_coords_b, feats_b, labels_b, *args_b)
-                coords_b = torch.cat((indices_b, slim_coords_b), dim=1)
-            else:
-                raise NotImplementedError
-        return (coords_a, feats_a, labels_a), (coords_b, feats_b, labels_b), (args_a, args_b)
+        with torch.no_grad():
+            for t in self.sync_transform:
+                coords, feats, labels, *args = t(coords, feats, labels, *args)
+            
+            coords_a, feats_a, labels_a = coords, feats, labels
+            coords_b, feats_b, labels_b = coords.clone(), feats.clone(), labels.clone()
+            args_a = args
+            args_b = args
+            for t in self.random_transform:
+                if t.COORD_DIM == coords.shape[1]:
+                    coords_a, feats_a, labels_a, *args_a = t(coords_a, feats_a, labels_a, *args_a)
+                    coords_b, feats_b, labels_b, *args_b = t(coords_b, feats_b, labels_b, *args_b)
+                elif t.COORD_DIM == 3 and coords.shape[1] == 4:
+                    indices_a, slim_coords_a = coords_a[:, 0:1], coords_a[:, 1:]
+                    slim_coords_a, feats_a, labels_a, *args_a = t(slim_coords_a, feats_a, labels_a, *args_a)
+                    coords_a = torch.cat((indices_a, slim_coords_a), dim=1)
+                    indices_b, slim_coords_b = coords_b[:, 0:1], coords_b[:, 1:]
+                    slim_coords_b, feats_b, labels_b, *args_b = t(slim_coords_b, feats_b, labels_b, *args_b)
+                    coords_b = torch.cat((indices_b, slim_coords_b), dim=1)
+                else:
+                    raise NotImplementedError
+            return (coords_a, feats_a, labels_a), (coords_b, feats_b, labels_b), (args_a, args_b)
 
 
 class Voxelize(AbstractTransform):
@@ -429,7 +431,7 @@ class cf_collate_fn_factory:
                          size so that the number of input coordinates is below limit_numpoints.
     """
 
-    def __init__(self, limit_numpoints, device='cuda'):
+    def __init__(self, limit_numpoints, device=None):
         self.limit_numpoints = limit_numpoints
         self.device = device
 
@@ -439,9 +441,10 @@ class cf_collate_fn_factory:
         batch_id = 0
         batch_num_points = 0
         for batch_id, (coords, feats, labels, *_) in enumerate(list_data):
-            coords = coords.to(coords.device)
-            feats = feats.to(feats.device)
-            labels = labels.to(labels.device)
+            if self.device is not None:
+                coords = coords.to(coords.device)
+                feats = feats.to(feats.device)
+                labels = labels.to(labels.device)
             num_points = coords.shape[0]
             batch_num_points += num_points
             if self.limit_numpoints is not None and batch_num_points > self.limit_numpoints:

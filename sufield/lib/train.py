@@ -12,14 +12,12 @@ from torch.utils.tensorboard import SummaryWriter
 
 from ..datasets import get_transform
 from ..datasets import transforms as t
-from ..datasets.dataset import (BundledDataset, LimitedTrainValSplit,
-                                ScanNetVoxelized, TrainValSplit)
+from ..datasets.dataset import (BundledDataset, LimitedTrainValSplit, ScanNetVoxelized, TrainValSplit)
 from ..datasets.sampler import DistributedInfSampler, InfSampler
 from ..datasets.transforms import cf_collate_fn_factory
 from ..models.viewpoint_bottleneck import ViewpointBottleneck
-from .utils import (AverageMeter, Timer, checkpoint, current_timestr,
-                    deterministic, get_args, get_correlated_map, get_rank,
-                    get_world_size, run_distributed, setup_logger)
+from .utils import (AverageMeter, Timer, checkpoint, current_timestr, deterministic, get_args, get_correlated_map, get_rank, get_world_size, run_distributed,
+                    setup_logger)
 from .validate import validate_pass
 
 
@@ -48,13 +46,12 @@ def train(args):
     """
     Timers and Meters
     """
-    data_timer, fw_timer, bw_timer = Timer(), Timer(), Timer()
+    step_timer, data_timer, fw_timer, bw_timer = Timer(), Timer(), Timer(), Timer()
     loss_avg, score_avg = AverageMeter(), AverageMeter()
     """
     Dataset, Transforms and Dataloaders
     """
     train_transforms = t.Compose(get_transform(args['train']['transforms']))
-    validate_transforms = t.Compose(get_transform(args['validate']['transforms']))
 
     if args['train']['mode'] == 'SSRL':
         train_dataset = ScanNetVoxelized(
@@ -72,6 +69,7 @@ def train(args):
             pin_memory=True,
         )
     elif args['train']['mode'] == 'Finetune':
+        validate_transforms = t.Compose(get_transform(args['validate']['transforms']))
         train_dataset = LimitedTrainValSplit(
             ScanNetVoxelized,
             BundledDataset,
@@ -87,7 +85,7 @@ def train(args):
             train_dataset,
             batch_size=args['train']['batch_size'],
             num_workers=args['train']['num_workers'],
-            collate_fn=cf_collate_fn_factory(args['train']['limit_numpoints']),
+            collate_fn=cf_collate_fn_factory(args['train']['limit_numpoints'], device=f"cuda:{rank}"),
             sampler=DistributedInfSampler(train_dataset, shuffle=True) if world_size > 1 else InfSampler(train_dataset),
             pin_memory=True,
         )
@@ -103,7 +101,7 @@ def train(args):
             val_dataset,
             batch_size=args['validate']['batch_size'],
             num_workers=args['validate']['num_workers'],
-            collate_fn=cf_collate_fn_factory(args['validate']['limit_numpoints']),
+            collate_fn=cf_collate_fn_factory(args['validate']['limit_numpoints'], device=f"cuda:{rank}"),
             shuffle=False,
             pin_memory=True,
         )
@@ -151,11 +149,13 @@ def train(args):
     Training starts
     """
     logger.info(f'Start loop: one epoch has {len(train_dataloader)} steps')
+    step_timer.tic()
+    data_timer.tic()
     for step_idx, sample in zip(range(start_step, args['train']['max_iter']), train_dataloader):
         data_timer.toc()
 
         fw_timer.tic()
-        with torch.cuda.amp.autocast():
+        with torch.cuda.amp.autocast(args['train']['amp']):
             loss, ret = model(sample)
         fw_timer.toc()
 
@@ -169,12 +169,6 @@ def train(args):
         loss_avg.update(loss.item())
         bw_timer.toc()
 
-        if args['train']['logging_steps'] is not None and args['train']['logging_steps'] > 0 and (step_idx + 1) % args['train']['logging_steps'] == 0:
-            logger.info(f"Step {step_idx:6d}/{args['train']['max_iter']} "
-                        f"Loss: {loss.item():.4f}({loss_avg.avg:.4f}) "
-                        f"Data time: {data_timer.diff:.2f} "
-                        f"Forward time: {fw_timer.diff:.2f} "
-                        f"Backward time: {bw_timer.diff:.2f} ")
         if rank == 0:
             writer.add_scalar(f'Loss/{args["train"]["mode"]}', loss.item(), step_idx)
             if args['train']['mode'] == 'SSRL':
@@ -182,10 +176,20 @@ def train(args):
 
         if args['train']['checkpoint_steps'] is not None and args['train']['checkpoint_steps'] > 0 and (step_idx + 1) % args['train']['checkpoint_steps'] == 0:
             checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None, scaler)
+        if args['train']['save_steps'] is not None and args['train']['save_steps'] > 0 and (step_idx + 1) % args['train']['save_steps'] == 0:
+            checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None, scaler, 'latest')
 
         if args['train']['validate_steps'] is not None and args['train']['validate_steps'] and (step_idx + 1) % args['train']['validate_steps'] == 0:
             validate_pass(model, val_dataloader, writer if rank == 0 else None, step_idx, logging=True)
-
+        step_timer.toc()
+        if args['train']['logging_steps'] is not None and args['train']['logging_steps'] > 0 and (step_idx + 1) % args['train']['logging_steps'] == 0:
+            logger.info(f"Step {step_idx:6d}/{args['train']['max_iter']} "
+                        f"Loss: {loss.item():.4f}({loss_avg.avg:.4f}) "
+                        f"Step time: {step_timer.diff:.2f} "
+                        f"Data time: {data_timer.diff:.2f} "
+                        f"Forward time: {fw_timer.diff:.2f} "
+                        f"Backward time: {bw_timer.diff:.2f} ")
+        step_timer.tic()
         data_timer.tic()
 
 

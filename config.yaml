@@ -3,21 +3,23 @@ log_root_dir: logs
 load:
 seed: 42
 dataset:
-  bundle_dir: /home/tb5zhh/SUField/bundled_datasets/SCANNET
-  data_list: /home/tb5zhh/SUField/datasets/ScanNetv2_train_data.txt
-  label_list: /home/tb5zhh/SUField/datasets/ScanNetv2_train_labels.txt
-  annotate_index_dir: /home/tb5zhh/SUField/bundled_datasets/SCANNET/limited_annotation
-  split_file_dir: /home/tb5zhh/SUField/bundled_datasets/SCANNET/split
+  bundle_dir: /home/aidrive/tb5zhh/vibus/SUField/bundled_datasets/SCANNET
+  data_list: /home/aidrive/tb5zhh/vibus/SUField/datasets/ScanNetv2_train_data.txt
+  label_list: /home/aidrive/tb5zhh/vibus/SUField/datasets/ScanNetv2_train_labels.txt
+  annotate_index_dir: /home/aidrive/tb5zhh/vibus/SUField/bundled_datasets/SCANNET/limited_annotation
+  split_file_dir: /home/aidrive/tb5zhh/vibus/SUField/bundled_datasets/SCANNET/split
 train:
   mode: SSRL
-  max_iter: 100000
-  batch_size: 12
+  max_iter: 20000
+  batch_size: 30
   world_size: 2
-  num_workers: 2
-  logging_steps: 10
+  num_workers: 4
+  amp: no
+  logging_steps: 1
   checkpoint_steps: 1000
+  save_steps: 100
   validate_steps: 0
-  limit_numpoints: 400000
+  limit_numpoints: 
   arch: Res16UNet34T
 
   annotation_count: 20
@@ -29,7 +31,7 @@ train:
     RandomScaling: "[]"
     NonNegativeTranslation: "[]"
     Voxelize: "[]"
-    RandomDropout: "[0.5, 1]"
+    RandomDropout: "[0.2, 1]"
     RandomHorizontalFlip: "['z']"
     ChromaticAutoContrast: "[]"
     ChromaticTranslation: "[]"
