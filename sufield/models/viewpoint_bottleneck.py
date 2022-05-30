@@ -31,8 +31,18 @@ class ViewpointBottleneck(nn.Module):
                 ],
             )
         else:
-            self.criterion = nn.CrossEntropyLoss(ignore_index=255)
-            self.split_transform = t.Compose([t.ToSparseTensor()])
+            if self.training:
+                self.split_transform = t.Compose(
+                    [
+                        t.RandomRotation(),
+                        t.RandomTranslation(),
+                        t.RandomScaling(),
+                        t.ToSparseTensor(),
+                    ],
+                )
+                self.criterion = nn.CrossEntropyLoss(ignore_index=255)
+            else:
+                self.split_transform = t.Compose([t.ToSparseTensor()])
 
     def train_step(self, input):
         if self.mode == 'SSRL':

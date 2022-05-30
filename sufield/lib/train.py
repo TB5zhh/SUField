@@ -38,10 +38,11 @@ def train(args):
         os.makedirs(f"{args['output_dir']}/tensorboard", exist_ok=True)
         writer = SummaryWriter(f"{args['output_dir']}/tensorboard")
         repo = git.Repo(search_parent_directories=True)
-        logger.info("Current commit id: " + repo.head.commit.hexsha)
         if repo.is_dirty():
             logger.error("There are uncommited changes in this repo. Please commit changes before running experiments")
-            raise RuntimeError
+            # raise RuntimeError
+        else:
+            logger.info("Current commit id: " + repo.head.commit.hexsha)
     logger.debug('Train func start')
     """
     Timers and Meters
@@ -70,16 +71,24 @@ def train(args):
         )
     elif args['train']['mode'] == 'Finetune':
         validate_transforms = t.Compose(get_transform(args['validate']['transforms']))
-        train_dataset = LimitedTrainValSplit(
+        # train_dataset = LimitedTrainValSplit(
+        #     ScanNetVoxelized,
+        #     BundledDataset,
+        #     bundle_path=f'{args["dataset"]["bundle_dir"]}/train.npy',
+        #     transforms=train_transforms,
+        #     annotate_idx_dir=args["dataset"]["annotate_index_dir"],
+        #     split_file_dir=args["dataset"]["split_file_dir"],
+        #     split='train',
+        #     size=args["train"]["annotation_count"],
+        #     map_idx=3,
+        # )
+        train_dataset = TrainValSplit(
             ScanNetVoxelized,
             BundledDataset,
             bundle_path=f'{args["dataset"]["bundle_dir"]}/train.npy',
             transforms=train_transforms,
-            annotate_idx_dir=args["dataset"]["annotate_index_dir"],
             split_file_dir=args["dataset"]["split_file_dir"],
             split='train',
-            size=args["train"]["annotation_count"],
-            map_idx=3,
         )
         train_dataloader = DataLoader(
             train_dataset,
@@ -183,7 +192,7 @@ def train(args):
         if args['train']['logging_steps'] is not None and args['train']['logging_steps'] > 0 and (step_idx + 1) % args['train']['logging_steps'] == 0:
             logger.info(f"Step {step_idx:6d}/{args['train']['max_iter']} "
                         f"Loss: {loss.item():.4f}({loss_avg.avg:.4f}) "
-                        f"Learning rate: {scheduler.get_last_lr()[0]:.2f} "
+                        f"Learning rate: {scheduler.get_last_lr()[0]} "
                         f"Step time: {step_timer.diff:.2f} "
                         f"Data time: {data_timer.diff:.2f} "
                         f"Forward time: {fw_timer.diff:.2f} "

@@ -264,6 +264,7 @@ class Compose(AbstractTransform):
         self.transforms = transforms
 
     def __call__(self, coords, feats, labels, *args):
+        logging.getLogger(__name__).debug(self)
         with torch.no_grad():
             for t in self.transforms:
                 logging.getLogger(__name__).debug(str(t) + ' start')
@@ -273,7 +274,6 @@ class Compose(AbstractTransform):
                     indices, slim_coords = coords[:, 0:1], coords[:, 1:]
                     slim_coords, feats, labels, *args = t(slim_coords, feats, labels, *args)
                     coords = torch.cat((indices.to(slim_coords.device), slim_coords), dim=1)
-                    # inputs = (coords, feats, labels, *args)
                 else:
                     logging.getLogger(__name__).debug(t)
                     logging.getLogger(__name__).debug(t.COORD_DIM)
@@ -285,32 +285,21 @@ class Compose(AbstractTransform):
 
 class SplitCompose(object):
     def __init__(self, sync_transform, random_transform, coords_dim=3) -> None:
-        self.sync_transform = sync_transform
-        self.random_transform = random_transform
+        self.sync_transform = Compose(sync_transform)
+        self.random_transform = Compose(random_transform)
     
     def __call__(self, coords, feats, labels, *args):
-        with torch.no_grad():
-            for t in self.sync_transform:
-                coords, feats, labels, *args = t(coords, feats, labels, *args)
-            
-            coords_a, feats_a, labels_a = coords, feats, labels
-            coords_b, feats_b, labels_b = coords.clone(), feats.clone(), labels.clone()
-            args_a = args
-            args_b = args
-            for t in self.random_transform:
-                if t.COORD_DIM == coords.shape[1]:
-                    coords_a, feats_a, labels_a, *args_a = t(coords_a, feats_a, labels_a, *args_a)
-                    coords_b, feats_b, labels_b, *args_b = t(coords_b, feats_b, labels_b, *args_b)
-                elif t.COORD_DIM == 3 and coords.shape[1] == 4:
-                    indices_a, slim_coords_a = coords_a[:, 0:1], coords_a[:, 1:]
-                    slim_coords_a, feats_a, labels_a, *args_a = t(slim_coords_a, feats_a, labels_a, *args_a)
-                    coords_a = torch.cat((indices_a, slim_coords_a), dim=1)
-                    indices_b, slim_coords_b = coords_b[:, 0:1], coords_b[:, 1:]
-                    slim_coords_b, feats_b, labels_b, *args_b = t(slim_coords_b, feats_b, labels_b, *args_b)
-                    coords_b = torch.cat((indices_b, slim_coords_b), dim=1)
-                else:
-                    raise NotImplementedError
-            return (coords_a, feats_a, labels_a), (coords_b, feats_b, labels_b), (args_a, args_b)
+        logging.getLogger(__name__).debug(self)
+        coords, feats, labels, *args = self.sync_transform(coords, feats, labels, *args)
+
+        coords_a, feats_a, labels_a = coords, feats, labels
+        coords_b, feats_b, labels_b = coords.clone(), feats.clone(), labels.clone()
+        args_a = args
+        args_b = args
+
+        coords_a, feats_a, labels_a, *args_a = self.random_transform(coords_a, feats_a, labels_a, *args_a)
+        coords_b, feats_b, labels_b, *args_b = self.random_transform(coords_b, feats_b, labels_b, *args_b)
+        return (coords_a, feats_a, labels_a), (coords_b, feats_b, labels_b), (args_a, args_b)
 
 
 class Voxelize(AbstractTransform):
@@ -336,6 +325,10 @@ class Voxelize(AbstractTransform):
         else:
             return torch.as_tensor(voxelized_coords, device=device), torch.as_tensor(voxelized_feats, device=device), torch.as_tensor(voxelized_labels, device=device), *args
 
+class ColorNormalize(AbstractTransform):
+    def __call__(self, coords, feats, labels, *args):
+        feats = feats / 255 - 0.5
+        return coords, feats, labels, *args
 
 class RandomRotation(AbstractTransform):
 

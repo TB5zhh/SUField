@@ -1,7 +1,7 @@
 exp_name: viewpoint_bottleneck_scannet_finetune_wo_pretrain_200
 log_root_dir: logs
 load:
-seed: 42
+seed:
 dataset:
   bundle_dir: /home/tb5zhh/SUField/bundled_datasets/SCANNET
   data_list: /home/tb5zhh/SUField/datasets/ScanNetv2_train_data.txt
@@ -11,16 +11,16 @@ dataset:
 train:
   mode: Finetune
   max_iter: 20000
-  batch_size: 10
-  world_size: 4
+  batch_size: 16
+  world_size: 2
   num_workers: 2
   amp: yes
   logging_steps: 10
   checkpoint_steps: 1000
   save_steps: 10
-  validate_steps: 100
-  limit_numpoints: 400000
-  arch: Res16UNet34T
+  validate_steps: 10
+  limit_numpoints: 
+  arch: Res16UNet34C
 
   annotation_count: 200
   
@@ -29,17 +29,20 @@ train:
     RandomRotation:
       "[[[-np.pi/16, -np.pi/16], [-np.pi/16, np.pi/16], [-np.pi/2, np.pi/2]]]"
     RandomScaling: "[]"
+    RandomTranslation: "[]"
     NonNegativeTranslation: "[]"
     Voxelize: "[]"
+    RandomDropout: "[0.2]"
     RandomHorizontalFlip: "['z']"
     ChromaticAutoContrast: "[]"
     ChromaticTranslation: "[]"
     ChromaticJitter: "[]"
+    ColorNormalize: "[]"
     # HueSaturationTranslation: "[0.5, 0.2]"
   
   optimizer:
     type: SGD # SGD, Adam
-    learning_rate: 0.01
+    learning_rate: 0.001
     SGD:
       momentum: 0.9
       dampening: 0.1
@@ -48,7 +51,7 @@ train:
   scheduler:
     type: Polynomial
     poly:
-      power: 0.9
+      power: 1.5
 validate:
   batch_size: 1
   num_workers: 1
