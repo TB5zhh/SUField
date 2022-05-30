@@ -10,6 +10,8 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
+from sufield.lib.utils.criteria import PerClassCriterion
+
 from ..datasets import get_transform
 from ..datasets import transforms as t
 from ..datasets.dataset import (BundledDataset, LimitedTrainValSplit, ScanNetVoxelized, TrainValSplit)
@@ -160,20 +162,24 @@ def train(args):
     logger.info(f'Start loop: one epoch has {len(train_dataloader)} steps')
     step_timer.tic()
     data_timer.tic()
+    evaluator = PerClassCriterion()
     for step_idx, sample in zip(range(start_step, args['train']['max_iter']), train_dataloader):
         data_timer.toc()
 
         fw_timer.tic()
-        with torch.cuda.amp.autocast(args['train']['amp']):
-            loss, ret = model(sample)
+        # with torch.cuda.amp.autocast(args['train']['amp']):
+        with torch.cuda.amp.autocast(False):
+            loss, prediction, target = model(sample)
         fw_timer.toc()
-
+        evaluator.update(prediction, target)
         bw_timer.tic()
         assert loss.item() != float('nan')
         optimizer.zero_grad()
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
+        loss.backward()
+        optimizer.step()
+        # scaler.scale(loss).backward()
+        # scaler.step(optimizer)
+        # scaler.update()
         scheduler.step()
         loss_avg.update(loss.item())
         bw_timer.toc()
@@ -182,8 +188,7 @@ def train(args):
             checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None, scaler)
         if args['train']['save_steps'] is not None and args['train']['save_steps'] > 0 and (step_idx + 1) % args['train']['save_steps'] == 0:
             checkpoint(args, model.module if world_size > 1 else model, optimizer, scheduler, step_idx, None, scaler, 'latest')
-        if args['train']['validate_steps'] is not None and args['train']['validate_steps'] and (step_idx + 1) % args['train']['validate_steps'] == 0:
-            validate_pass(model, val_dataloader, writer if rank == 0 else None, step_idx, logging=True)
+        # if args['train']['validate_steps'] is not None and args['train']['validate_steps'] and (step_idx + 1) % args['train']['validate_steps'] == 0:
         step_timer.toc()
         if rank == 0:
             writer.add_scalar(f'Loss/{args["train"]["mode"]}', loss.item(), step_idx)
@@ -197,6 +202,22 @@ def train(args):
                         f"Data time: {data_timer.diff:.2f} "
                         f"Forward time: {fw_timer.diff:.2f} "
                         f"Backward time: {bw_timer.diff:.2f} ")
+        if (step_idx + 1) % len(train_dataloader) == 0:
+            iou = evaluator.get_iou() * 100
+            precision = evaluator.get_precision() * 100
+            recall = evaluator.get_recall() * 100
+            if rank == 0 and writer is not None:
+                writer.add_scalar(f'Train miou', iou.nanmean().item(), step_idx)
+                writer.add_scalar(f'Train average precision', precision.nanmean().item(), step_idx)
+                writer.add_scalar(f'Train average recall', recall.nanmean().item(), step_idx)
+            logger.info("Per class iou:\t" + '\t'.join([f'{i:.2f}' for i in iou]))
+            logger.info("Per class prec:\t" + '\t'.join([f'{i:.2f}' for i in precision]))
+            logger.info("Per class recal:\t" + '\t'.join([f'{i:.2f}' for i in recall]))
+            logger.info("Mean iou:\t" + f"{iou.nanmean():.2f}")
+            logger.info("Mean prec:\t" + f"{precision.nanmean():.2f}")
+            logger.info("Mean recal:\t" + f"{recall.nanmean():.2f}")
+            evaluator.clear()
+            validate_pass(model, val_dataloader, writer if rank == 0 else None, step_idx, logging=True)
         step_timer.tic()
         data_timer.tic()
 

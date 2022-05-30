@@ -12,8 +12,19 @@ CITYSCAPES_PALETTE = [(0., 0., 0.), (174., 199., 232.), (152., 223., 138.), (31.
                       (178., 127., 135.), (182., 56., 128.), (146., 111., 194.), (44., 160., 44.), (112., 128., 144.),
                       (96., 207., 209.), (227., 119., 194.), (213., 92., 176.), (94., 106., 211.), (82., 84., 163.),
                       (100., 85., 144.)]
+CITYSCAPES_VALID_LABELS = [(1, "wall"), (2, "floor"), (3, "cabinet"), (4, "bed"), (5, "chair"), (6, "sofa"), (7, "table"), (8, "door"), (9, "window"),
+                       (10, "bookshelf"), (11, "picture"), (12, "counter"), (14, "desk"), (16, "curtain"), (24, "refridgerator"), (28, "shower curtain"),
+                       (33, "toilet"), (34, "sink"), (36, "bathtub"), (39, "otherfurniture")]
 
-
+def dump_points_with_labels_remapped(coords, labels, output, palette=CITYSCAPES_PALETTE):
+    assert len(coords) == len(labels)
+    with open(output, 'w') as f:
+        for coord, label in zip(coords, labels):
+            if label != 255:
+                print(f"{coord[0]} {coord[1]} {coord[2]} {palette[CITYSCAPES_VALID_LABELS[label][0]][0]/255} {palette[CITYSCAPES_VALID_LABELS[label][0]][1]/255} {palette[CITYSCAPES_VALID_LABELS[label][0]][2]/255}",
+                      file=f)
+            else:
+                print(f"{coord[0]} {coord[1]} {coord[2]} 0.99 0.99 0.99", file=f)
 def dump_points_with_labels(coords, labels, output, palette=CITYSCAPES_PALETTE):
     assert len(coords) == len(labels)
     with open(output, 'w') as f:

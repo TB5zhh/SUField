@@ -9,13 +9,16 @@ class PerClassCriterion:
 
     def update(self, prediction, target):
         assert prediction.shape == target.shape
-        assert target[target != 255].max() < self.num_classes
+        # assert target[target != 255].max() < self.num_classes
         assert prediction.max() < self.num_classes
         mask = torch.logical_and(target >= 0, target < self.num_classes)
         self.stat += torch.bincount(
             self.num_classes * target.cpu()[mask] + prediction.cpu()[mask],
             minlength=self.num_classes**2,
         ).reshape(self.num_classes, self.num_classes)
+
+    def clear(self):
+        self.stat = torch.zeros((self.num_classes, self.num_classes))
 
     def get_iou(self):
         return self.stat.diag() / (self.stat.sum(0) + self.stat.sum(1) - self.stat.diag())

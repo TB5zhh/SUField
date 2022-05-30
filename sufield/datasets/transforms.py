@@ -173,7 +173,7 @@ class HueSaturationTranslation():
 
 class RandomDropout(AbstractTransform):
 
-    def __init__(self, dropout_ratio=0.5, apply_ratio=0.2):
+    def __init__(self, dropout_ratio=0.2, apply_ratio=0.95):
         """
         upright_axis: axis index among x,y,z, i.e. 2 for z
         """
@@ -304,7 +304,7 @@ class SplitCompose(object):
 
 class Voxelize(AbstractTransform):
 
-    def __init__(self, fix_map=None, voxel_size=0.05, return_map=True, apply_ratio=1.) -> None:
+    def __init__(self, fix_map=None, voxel_size=0.02, return_map=True, apply_ratio=1.) -> None:
         self.fix_map = fix_map
         self.voxel_size = voxel_size
         self.return_map = return_map

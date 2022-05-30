@@ -10,15 +10,15 @@ dataset:
   split_file_dir: /home/tb5zhh/SUField/bundled_datasets/SCANNET/split
 train:
   mode: Finetune
-  max_iter: 20000
-  batch_size: 16
+  max_iter: 40000
+  batch_size: 8
   world_size: 2
   num_workers: 2
   amp: yes
-  logging_steps: 10
+  logging_steps: 1
   checkpoint_steps: 1000
   save_steps: 10
-  validate_steps: 10
+  validate_steps: 1000
   limit_numpoints: 
   arch: Res16UNet34C
 
@@ -32,7 +32,7 @@ train:
     RandomTranslation: "[]"
     NonNegativeTranslation: "[]"
     Voxelize: "[]"
-    RandomDropout: "[0.2]"
+    RandomDropout: "[0.1]"
     RandomHorizontalFlip: "['z']"
     ChromaticAutoContrast: "[]"
     ChromaticTranslation: "[]"

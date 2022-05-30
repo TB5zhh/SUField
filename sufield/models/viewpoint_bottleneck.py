@@ -59,7 +59,7 @@ class ViewpointBottleneck(nn.Module):
         else:
             tfield, tfield_sparse, target, *_ = self.split_transform(*input)
             logits = self.fc(self.encoder(tfield_sparse)).slice(tfield).F
-            return self.criterion(logits, target.long()), None
+            return self.criterion(logits, target.long()), torch.argmax(logits, dim=1), target
 
     def validate_step(self, input):
         getLogger(__name__).debug('before validate step')

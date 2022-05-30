@@ -27,7 +27,7 @@ def validate_pass(model: nn.Module, dataloader: DataLoader, writer: SummaryWrite
         logger.info("Validation result")
         logger.info("Per class iou:\t" + '\t'.join([f'{i:.2f}' for i in iou]))
         logger.info("Per class prec:\t" + '\t'.join([f'{i:.2f}' for i in precision]))
-        logger.info("Per class recall:\t" + '\t'.join([f'{i:.2f}' for i in recall]))
+        logger.info("Per class recal:\t" + '\t'.join([f'{i:.2f}' for i in recall]))
         logger.info("Mean iou:\t" + f"{iou.nanmean():.2f}")
         logger.info("Mean prec:\t" + f"{precision.nanmean():.2f}")
         logger.info("Mean recal:\t" + f"{recall.nanmean():.2f}")
